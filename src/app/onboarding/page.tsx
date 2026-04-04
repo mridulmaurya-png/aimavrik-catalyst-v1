@@ -33,12 +33,17 @@ export default function OnboardingPage() {
   const handleWorkspace = async (data: any) => {
     setLoading(true)
     try {
-      const { businessId: id } = await createWorkspace({
+      const response = await createWorkspace({
         name: data.name,
         type: data.type,
         timezone: data.timezone,
       })
-      setBusinessId(id)
+      
+      if (response.error) {
+         throw new Error(response.error);
+      }
+      
+      setBusinessId(response.businessId!)
       setState(prev => ({ ...prev, workspace: data }))
       nextStep()
     } catch (e: any) {
