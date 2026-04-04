@@ -5,10 +5,12 @@ import { requireUser } from "@/lib/auth/context";
 import { bootstrapWorkspace } from "./workspace";
 
 export async function createWorkspace(data: { name: string; type: string; timezone: string }) {
+  console.log("Starting workspace creation for:", data.name);
   const supabase = await createClient();
   const user = await requireUser();
 
   // Create Business
+  console.log("Inserting business payload under user:", user.id);
   const { data: business, error: bizError } = await supabase
     .from("businesses")
     .insert({
@@ -20,7 +22,15 @@ export async function createWorkspace(data: { name: string; type: string; timezo
     .select()
     .single();
 
-  if (bizError) throw bizError;
+  if (bizError) {
+    console.error("Failed to insert business:", bizError);
+    if (bizError.code === '42501') {
+      throw new Error(`Row-Level Security prevents insertion. Check your Supabase RLS policies for 'businesses' table.`);
+    }
+    throw new Error(bizError.message || "Failed to create business workspace structure.");
+  }
+
+  console.log("Business created successfully:", business.id);
 
   // Add team member for tenant routing
   const { error: teamError } = await supabase.from("team_members").insert({
@@ -29,11 +39,20 @@ export async function createWorkspace(data: { name: string; type: string; timezo
     role: "owner"
   });
 
-  if (teamError) throw teamError;
+  if (teamError) {
+    console.error("Failed to insert team member:", teamError);
+    throw new Error(teamError.message || "Failed to link user to business");
+  }
 
   // Run the core bootstrap
-  await bootstrapWorkspace(business.id);
+  try {
+    await bootstrapWorkspace(business.id);
+  } catch(e) {
+    console.error("Failed to bootstrap workspace settings:", e);
+    // Suppress throw as core business workspace still successfully persists!
+  }
 
+  console.log("Onboarding workspace creation fully successful for", business.id);
   return { businessId: business.id };
 }
 

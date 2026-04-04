@@ -21,7 +21,25 @@ import {
 import { cn } from "@/lib/utils"
 
 /* --- Step 1: Workspace --- */
-export function StepWorkspace({ onNext }: { onNext: (data: any) => void; isLoading?: boolean }) {
+export function StepWorkspace({ onNext, isLoading }: { onNext: (data: any) => Promise<void> | void; isLoading?: boolean }) {
+  const [name, setName] = React.useState("")
+  const [type, setType] = React.useState("D2C / E-commerce")
+  const [timezone, setTimezone] = React.useState("Asia/Kolkata")
+  const [error, setError] = React.useState("")
+
+  const handleSubmit = async () => {
+    if (!name.trim()) {
+      setError("Business Name is required");
+      return;
+    }
+    setError("");
+    try {
+      await onNext({ name: name.trim(), type, timezone });
+    } catch (e: any) {
+      setError(e.message || "We couldn't create your workspace. Please try again.");
+    }
+  }
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="text-center space-y-2">
@@ -30,14 +48,30 @@ export function StepWorkspace({ onNext }: { onNext: (data: any) => void; isLoadi
       </div>
       <Card variant="elevated" className="p-8 space-y-6">
         <div className="space-y-4">
+          {error && (
+            <div className="p-3 rounded-lg bg-functional-error/10 border border-functional-error/20 text-functional-error text-body-sm">
+              {error}
+            </div>
+          )}
           <div className="space-y-2">
             <label className="text-label-sm font-bold text-brand-text-secondary">Business Name</label>
-            <Input placeholder="e.g. Acme Corp" className="h-12 bg-brand-bg-primary" />
+            <Input 
+              placeholder="e.g. Acme Corp" 
+              className="h-12 bg-brand-bg-primary"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={isLoading}
+            />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-label-sm font-bold text-brand-text-secondary">Business Type</label>
-              <select className="w-full h-12 bg-brand-bg-primary border border-brand-border rounded-lg px-4 text-body-sm text-brand-text-secondary focus:outline-none focus:border-brand-primary">
+              <select 
+                className="w-full h-12 bg-brand-bg-primary border border-brand-border rounded-lg px-4 text-body-sm text-brand-text-secondary focus:outline-none focus:border-brand-primary disabled:opacity-50"
+                value={type}
+                onChange={(e) => setType(e.target.value)}
+                disabled={isLoading}
+              >
                 <option>D2C / E-commerce</option>
                 <option>Service Business</option>
                 <option>SaaS</option>
@@ -45,13 +79,28 @@ export function StepWorkspace({ onNext }: { onNext: (data: any) => void; isLoadi
             </div>
             <div className="space-y-2">
               <label className="text-label-sm font-bold text-brand-text-secondary">Timezone</label>
-              <Input defaultValue="(GMT-08:00) Pacific" className="h-12 bg-brand-bg-primary" />
+              <select 
+                className="w-full h-12 bg-brand-bg-primary border border-brand-border rounded-lg px-4 text-body-sm text-brand-text-secondary focus:outline-none focus:border-brand-primary disabled:opacity-50"
+                value={timezone}
+                onChange={(e) => setTimezone(e.target.value)}
+                disabled={isLoading}
+              >
+                <option value="Asia/Kolkata">Asia/Kolkata</option>
+                <option value="UTC">UTC</option>
+                <option value="America/New_York">America/New_York</option>
+                <option value="America/Los_Angeles">America/Los_Angeles</option>
+                <option value="Europe/London">Europe/London</option>
+              </select>
             </div>
           </div>
         </div>
-        <Button className="w-full h-12 gap-2 text-body-md font-bold" onClick={() => onNext({ name: 'Acme' })}>
-          Continue
-          <ArrowRight className="w-4 h-4" />
+        <Button 
+          className="w-full h-12 gap-2 text-body-md font-bold" 
+          onClick={handleSubmit}
+          disabled={isLoading}
+        >
+          {isLoading ? "Creating..." : "Continue"}
+          {!isLoading && <ArrowRight className="w-4 h-4" />}
         </Button>
       </Card>
     </div>

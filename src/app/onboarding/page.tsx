@@ -41,8 +41,9 @@ export default function OnboardingPage() {
       setBusinessId(id)
       setState(prev => ({ ...prev, workspace: data }))
       nextStep()
-    } catch (e) {
-      console.error(e)
+    } catch (e: any) {
+      console.error("Workspace creation failed:", e)
+      throw e;
     } finally {
       setLoading(false)
     }
