@@ -33,14 +33,16 @@ export async function saveSource(businessId: string, source: string) {
 
 export async function saveChannel(businessId: string, channel: string) {
   const supabase = await createClient();
-  // Fetch existing first to not overwrite other prefs
+  
+  // Fetch existing first to not overwrite other prefs natively
   const { data: settings } = await supabase.from("business_settings").select("cta_preferences_json").eq("business_id", businessId).single();
   const ctaPrefs = (settings?.cta_preferences_json as any) || {};
   ctaPrefs.channel = channel;
 
-  await supabase.from("business_settings").update({
+  await supabase.from("business_settings").upsert({
+    business_id: businessId,
     cta_preferences_json: ctaPrefs
-  }).eq("business_id", businessId);
+  });
   return { success: true };
 }
 

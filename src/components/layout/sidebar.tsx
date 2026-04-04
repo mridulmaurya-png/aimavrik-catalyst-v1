@@ -89,12 +89,26 @@ export function Sidebar() {
       </nav>
 
       <div className="p-4 border-t border-brand-border">
-        <div className="flex items-center gap-3 px-3 py-2">
-          <div className="w-8 h-8 rounded-full bg-brand-bg-elevated border border-brand-border" />
-          <div className="flex-1 min-w-0">
-            <p className="text-body-sm font-medium truncate">Founder</p>
-            <p className="text-[10px] text-brand-text-tertiary truncate">owner</p>
+        <div className="flex items-center justify-between px-3 py-2">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-brand-bg-elevated border border-brand-border" />
+            <div className="flex-1 min-w-0">
+              <p className="text-body-sm font-medium truncate">Founder</p>
+              <p className="text-[10px] text-brand-text-tertiary truncate">owner</p>
+            </div>
           </div>
+          <button 
+            onClick={async () => {
+               const { createClient } = await import("@/lib/supabase/client");
+               const supabase = createClient();
+               await supabase.auth.signOut();
+               window.location.href = "/login";
+            }}
+            className="text-brand-text-tertiary hover:text-functional-error transition-colors"
+            title="Log out"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+          </button>
         </div>
       </div>
     </aside>

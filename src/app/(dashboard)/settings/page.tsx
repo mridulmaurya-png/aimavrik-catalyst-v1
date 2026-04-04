@@ -13,17 +13,14 @@ export default async function SettingsPage() {
     .eq("business_id", businessId)
     .single();
 
-  if (error || !settings) {
-    return (
-      <div className="p-12 text-center space-y-4">
-        <ShieldAlert className="w-12 h-12 text-functional-error mx-auto opacity-20" />
-        <h2 className="text-heading-3 font-bold">Workspace Configuration Error</h2>
-        <p className="text-body-sm text-brand-text-secondary">
-          Could not load business settings. The workspace might not be fully bootstrapped.
-        </p>
-      </div>
-    );
-  }
+  const safeSettings = settings || {
+    business_id: businessId,
+    communication_hours_json: { timezone: "UTC", days: ["Mon", "Tue", "Wed", "Thu", "Fri"] },
+    quiet_hours_json: { start: "22:00", end: "08:00" },
+    brand_voice_json: { tone: "Professional", restrictedWords: [] },
+    cta_preferences_json: { style: "Direct" },
+    followup_rules_json: { maxAttempts: 3, delayHours: 24 }
+  };
 
-  return <SettingsClient initialBusiness={business} initialSettings={settings} />;
+  return <SettingsClient initialBusiness={business} initialSettings={safeSettings} />;
 }

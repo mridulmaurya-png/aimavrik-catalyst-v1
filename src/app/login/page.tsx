@@ -50,9 +50,9 @@ function LoginContent() {
         }
 
         if (membership && membership.business_id) {
-          router.push("/dashboard");
+          window.location.href = "/dashboard";
         } else {
-          router.push("/onboarding");
+          window.location.href = "/onboarding";
         }
       }
     } catch (e: any) {
