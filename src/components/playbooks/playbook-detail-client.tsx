@@ -19,7 +19,7 @@ interface PlaybookStats {
   currencyCode: string;
 }
 
-export default function PlaybookDetailClient({ playbook, stats }: { playbook: any; stats: PlaybookStats }) {
+export default function PlaybookDetailClient({ playbook, stats, recentActions }: { playbook: any; stats: PlaybookStats; recentActions: any[] }) {
   const [isActive, setIsActive] = React.useState(playbook.is_active);
   const [isSaving, setIsSaving] = React.useState(false);
   const [isToggling, setIsToggling] = React.useState(false);
@@ -258,6 +258,31 @@ export default function PlaybookDetailClient({ playbook, stats }: { playbook: an
             </div>
             <p className="text-body-md font-bold capitalize">{category?.name || "Uncategorized"}</p>
             <p className="text-body-sm text-brand-text-tertiary">{category?.description || "Custom playbook category."}</p>
+          </Card>
+
+          {/* Recent Actions */}
+          <Card variant="elevated" className="p-6 space-y-4">
+            <h3 className="text-heading-4 font-bold border-b border-brand-border/50 pb-3">Recent Activity</h3>
+            {recentActions.length > 0 ? (
+              <div className="space-y-3">
+                {recentActions.map((action, i) => {
+                  const contactName = Array.isArray(action.contact) ? action.contact[0]?.full_name : action.contact?.full_name;
+                  return (
+                    <div key={i} className="flex items-center justify-between gap-3 text-[11px] border-b border-brand-border/20 last:border-0 pb-2 last:pb-0">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-brand-text-primary truncate">{contactName || "Unknown"}</p>
+                        <p className="text-brand-text-tertiary truncate">{action.action_type?.replace(/_/g, " ")}</p>
+                      </div>
+                      <Badge variant={action.status === 'completed' ? 'success' : action.status === 'failed' ? 'error' : 'neutral'} className="text-[9px]">
+                        {action.status}
+                      </Badge>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-[11px] text-brand-text-tertiary text-center py-2">No actions generated yet.</p>
+            )}
           </Card>
         </div>
       </div>

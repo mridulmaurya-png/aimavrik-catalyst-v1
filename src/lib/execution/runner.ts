@@ -7,16 +7,22 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-export async function runExecutionCycle(limit: number = 20) {
+export async function runExecutionCycle(limit: number = 20, businessId?: string) {
   // 1. ACTION PICKUP (Claim / Lock logic) Constraint 1 & Phase 9 pickup constraints
   // Pick actions that are 'queued' OR 'scheduled' where scheduled_for is either null or past-due.
-  const { data: rawQueue } = await supabase
+  let query = supabase
     .from("actions")
     .select("*")
     .in("status", ["queued", "scheduled"])
     .or(`scheduled_for.is.null,scheduled_for.lte.${new Date().toISOString()}`)
     .order("created_at", { ascending: true })
     .limit(limit);
+
+  if (businessId) {
+    query = query.eq("business_id", businessId);
+  }
+
+  const { data: rawQueue } = await query;
 
   if (!rawQueue || rawQueue.length === 0) return { actions_processed: 0, results: [] };
 

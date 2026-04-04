@@ -3,6 +3,7 @@ import { PlaybookCard } from "@/components/dashboard/playbook-card";
 import { ExecutionFeed } from "@/components/dashboard/execution-feed";
 import { InsightCard } from "@/components/dashboard/insight-card";
 import { ExecutionHealth } from "@/components/dashboard/health-metrics";
+import { ExecutionTrigger } from "@/components/dashboard/execution-trigger";
 import { requireWorkspace } from "@/lib/auth/context";
 import { createClient } from "@/lib/supabase/server";
 import { computeSegments, buildRevenueOpportunities, buildSuggestedActions } from "@/lib/engine/segments";
@@ -69,7 +70,15 @@ export default async function DashboardPage() {
     .select("id, event_type, source, status, created_at, contact:contacts(full_name)")
     .eq("business_id", businessId)
     .order("created_at", { ascending: false })
-    .limit(8);
+    .limit(5);
+
+  // 7b. Fetch recent actions for feed
+  const { data: recentActions } = await supabase
+    .from("actions")
+    .select("id, action_type, channel, status, created_at, contact:contacts(full_name)")
+    .eq("business_id", businessId)
+    .order("created_at", { ascending: false })
+    .limit(5);
 
   // 8. Compute segments for revenue panels
   const segments = await computeSegments(supabase, businessId);
@@ -86,18 +95,32 @@ export default async function DashboardPage() {
     { label: "Failed", value: (failedCount || 0).toLocaleString(), trend: failedCount ? "Attention" : "Clean", trendType: failedCount ? "negative" : "positive", context: "Errors", isPrioritized: failedCount ? true : false },
   ];
 
-  // Build feed
-  const LIVE_FEED = (recentEvents || []).map(e => {
-    const contact = Array.isArray(e.contact) ? e.contact[0] : e.contact;
-    return {
-      id: e.id,
+  // Build feed combining events and actions
+  const feedItems = [
+    ...(recentEvents || []).map(e => ({
+      id: `evt_${e.id}`,
       type: e.event_type?.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) || "Event",
-      contact: contact?.full_name || "System",
+      contact: (Array.isArray(e.contact) ? (e.contact[0] as any)?.full_name : (e.contact as any)?.full_name) || "System",
       summary: `Source: ${e.source || 'unknown'}`,
-      time: formatTimeAgo(e.created_at),
-      status: e.status === "processed" ? "completed" : e.status || "queued"
-    };
-  });
+      time: e.created_at,
+      status: e.status === "processed" ? "completed" : e.status || "queued",
+      sortTime: new Date(e.created_at).getTime()
+    })),
+    ...(recentActions || []).map(a => ({
+      id: `act_${a.id}`,
+      type: `Action: ${a.action_type?.replace(/_/g, ' ') || 'Unknown'}`,
+      contact: (Array.isArray(a.contact) ? (a.contact[0] as any)?.full_name : (a.contact as any)?.full_name) || "System",
+      summary: `Channel: ${a.channel || 'system'}`,
+      time: a.created_at,
+      status: a.status === "failed" ? "failed" : a.status === "completed" ? "completed" : "queued",
+      sortTime: new Date(a.created_at).getTime()
+    }))
+  ].sort((a, b) => b.sortTime - a.sortTime).slice(0, 8);
+
+  const LIVE_FEED = feedItems.map(item => ({
+    ...item,
+    time: formatTimeAgo(item.time)
+  }));
 
   const HEALTH_MAP = [
     { label: "Catalyst Engine", value: "Online", status: "healthy" },
@@ -112,6 +135,10 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-8 pb-12">
       {/* SECTION 1: KPI ROW */}
+      <div className="flex items-center justify-between pb-2">
+         <h2 className="text-xl font-bold tracking-tight">System Overview</h2>
+         <ExecutionTrigger queuedCount={queuedCount || 0} />
+      </div>
       <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {KPI_DATA.map((kpi) => (
           <KPICard

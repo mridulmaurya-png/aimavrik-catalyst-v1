@@ -58,5 +58,13 @@ export default async function PlaybookDetailPage({ params }: { params: Promise<{
     currencyCode,
   };
 
-  return <PlaybookDetailClient playbook={playbook} stats={stats} />;
+  const { data: recentActions } = await supabase
+    .from("actions")
+    .select("id, contact_id, action_type, channel, status, created_at, contact:contacts(full_name)")
+    .eq("business_id", businessId)
+    .eq("playbook_id", id)
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  return <PlaybookDetailClient playbook={playbook} stats={stats} recentActions={recentActions || []} />;
 }
