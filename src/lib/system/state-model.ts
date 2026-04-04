@@ -123,6 +123,9 @@ export async function getSystemState(): Promise<SystemState> {
   let channelState: ChannelState = "no_channel_connected";
   let channels = [...sources];
   if (channelAssigned) channels.push(channelAssigned);
+  
+  // Hardening: Ensure channels contains no undefined/null values
+  channels = channels.filter(c => typeof c === 'string' && c.length > 0);
 
   if (channels.includes('email') && channels.includes('whatsapp')) channelState = "multiple_connected";
   else if (channels.includes('email')) channelState = "email_connected";

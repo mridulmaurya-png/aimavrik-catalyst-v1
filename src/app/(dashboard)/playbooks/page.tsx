@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Zap, ShieldAlert } from "lucide-react";
 import { requireWorkspace } from "@/lib/auth/context";
 import { createClient } from "@/lib/supabase/server";
+import Link from "next/link";
 
 export default async function PlaybooksPage() {
   const { businessId, business } = await requireWorkspace();
@@ -37,10 +38,12 @@ export default async function PlaybooksPage() {
             Activate pre-built systems that automate follow-up, recovery, and conversion.
           </p>
         </div>
-        <Button className="gap-2 h-11 px-6">
-          <Zap className="w-5 h-5" />
-          Activate playbook
-        </Button>
+        <Link href="/playbooks">
+          <Button className="gap-2 h-11 px-6">
+            <Zap className="w-5 h-5" />
+            Activate playbook
+          </Button>
+        </Link>
       </div>
 
       <div className="space-y-6">

@@ -49,21 +49,26 @@ export default async function IntegrationsPage() {
   const systemState = await getSystemState();
 
   const CONNECTED = systemState.channels.map(chan => {
-    let provider = chan;
+    // Standardize lowercase for robust matching
+    const normalizedChan = chan?.toLowerCase() || '';
+    let provider = normalizedChan;
     let statusLabel = 'active';
     let lastSync = 'Awaiting Payload';
 
-    if (chan === 'webhook') {
+    if (normalizedChan === 'webhook') {
       provider = 'Custom Webhook';
       lastSync = 'Listening';
-    } else if (chan === 'whatsapp') {
+    } else if (normalizedChan === 'whatsapp') {
       provider = 'WhatsApp (Demo Mode)';
       statusLabel = 'simulating';
-    } else if (chan === 'email') {
+    } else if (normalizedChan === 'email') {
       provider = 'Email Engine';
       lastSync = 'System Sender Active';
+    } else if (normalizedChan) {
+      provider = normalizedChan.charAt(0).toUpperCase() + normalizedChan.slice(1).replace('_', ' ');
     } else {
-      provider = chan.charAt(0).toUpperCase() + chan.slice(1).replace('_', ' ');
+      provider = 'Unknown System';
+      statusLabel = 'paused';
     }
 
     return {
@@ -74,9 +79,12 @@ export default async function IntegrationsPage() {
     }
   });
 
-  if (CONNECTED.length === 0) {
+  // Unique by provider to avoid duplicate card keys
+  const UNIQUE_CONNECTED = Array.from(new Map(CONNECTED.map(item => [item.provider, item])).values());
+
+  if (UNIQUE_CONNECTED.length === 0) {
     // Failsafe for fully clean states
-    CONNECTED.push({
+    UNIQUE_CONNECTED.push({
       provider: 'System',
       status: 'active',
       lastSync: 'Live',
@@ -104,7 +112,7 @@ export default async function IntegrationsPage() {
           Connected Systems
         </h4>
         <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
-          {CONNECTED.map((item) => (
+          {UNIQUE_CONNECTED.map((item) => (
             <IntegrationCard 
               key={item.provider}
               {...item as any}
