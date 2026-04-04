@@ -7,14 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 
-export default function SignupPage() {
+export default function ResetPasswordPage() {
   const [email, setEmail] = React.useState("");
-  const [password, setPassword] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
   const [success, setSuccess] = React.useState(false);
 
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
@@ -23,17 +22,13 @@ export default function SignupPage() {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
 
     try {
-      const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${baseUrl}/auth/callback?next=/onboarding`,
-        }
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${baseUrl}/auth/callback?next=/auth/update-password`,
       });
 
-      if (signUpError) {
-        console.error("Signup error:", signUpError);
-        setError(signUpError.message);
+      if (resetError) {
+        console.error("Reset error:", resetError);
+        setError(resetError.message);
         setLoading(false);
       } else {
         setSuccess(true);
@@ -56,8 +51,7 @@ export default function SignupPage() {
             </div>
             <h2 className="text-heading-3 font-bold">Check your email</h2>
             <p className="text-body-md text-brand-text-secondary">
-              We just sent a verification link to <span className="text-brand-text-primary font-bold">{email}</span>. 
-              Click the link to activate your account and start automating.
+              If an account matches <span className="text-brand-text-primary font-bold">{email}</span>, we have sent a password reset link.
             </p>
             <div className="pt-6 w-full">
               <Link href="/login">
@@ -79,14 +73,14 @@ export default function SignupPage() {
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-glow">
             <ShieldCheck className="w-6 h-6 text-white" />
           </div>
-          <h1 className="text-display-m font-bold tracking-tight">Create an account</h1>
-          <p className="text-body-md text-brand-text-secondary">Start automating your revenue execution</p>
+          <h1 className="text-display-m font-bold tracking-tight">Reset password</h1>
+          <p className="text-body-md text-brand-text-secondary">Enter your email to receive recovery instructions.</p>
         </div>
 
         <div className="card-elevated p-8 space-y-6 relative overflow-hidden">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-brand-primary/50 blur-sm" />
           
-          <form className="space-y-4" onSubmit={handleSignup}>
+          <form className="space-y-4" onSubmit={handleReset}>
             {error && (
               <div className="p-3 rounded-lg bg-functional-error/10 border border-functional-error/20 text-functional-error text-body-sm">
                 {error}
@@ -103,25 +97,14 @@ export default function SignupPage() {
                 required
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-label-sm font-bold text-brand-text-secondary">Password</label>
-              <Input 
-                type="password" 
-                placeholder="••••••••" 
-                className="h-12 bg-brand-bg-primary"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-            </div>
+            
             <Button type="submit" disabled={loading} className="w-full h-12 mt-4 text-body-md font-bold">
-              {loading ? "Creating account..." : "Sign up"}
+              {loading ? "Sending instructions..." : "Send reset link"}
             </Button>
           </form>
 
           <p className="text-center text-body-sm text-brand-text-tertiary">
-            Already have an account?{" "}
+            Remembered your password?{" "}
             <Link href="/login" className="text-brand-text-primary font-bold hover:text-brand-primary transition-colors">
               Sign in
             </Link>

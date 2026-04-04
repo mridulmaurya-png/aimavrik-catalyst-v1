@@ -40,7 +40,17 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // App protection
+  // Allow public auth routes without interference from dashboard protections
+  const publicAuthRoutes = ["/login", "/signup", "/reset-password", "/auth/callback", "/auth/update-password"];
+  if (publicAuthRoutes.some(route => request.nextUrl.pathname.startsWith(route))) {
+    // Optionally redirect logged-in users away from login/signup
+    if (user && (request.nextUrl.pathname === "/login" || request.nextUrl.pathname === "/signup")) {
+       return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+    return response;
+  }
+
+  // App protection for dashboard and functional routes
   const protectedRoutes = ["/dashboard", "/contacts", "/playbooks", "/integrations", "/settings", "/billing", "/analytics", "/event-logs"];
   const isProtectedRoute = protectedRoutes.some(route => request.nextUrl.pathname.startsWith(route));
 
