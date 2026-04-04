@@ -42,37 +42,42 @@ const CHANNELS = [
   { id: 'email', name: 'Email', icon: Mail },
 ];
 
+import { getSystemState } from "@/lib/system/state-model";
+
 export default async function IntegrationsPage() {
   const { businessId } = await requireWorkspace();
-  const supabase = await createClient();
+  const systemState = await getSystemState();
 
-  const { data: integrations, error } = await supabase
-    .from("integrations")
-    .select("*")
-    .eq("business_id", businessId);
+  const CONNECTED = systemState.channels.map(chan => {
+    let provider = chan;
+    let statusLabel = 'active';
+    let lastSync = 'Awaiting Payload';
 
-  if (error) {
-    return (
-      <div className="p-12 text-center">
-        <ShieldAlert className="w-12 h-12 text-functional-error mx-auto opacity-20" />
-        <h2 className="text-heading-3 mt-4 font-bold">Failed to load integrations</h2>
-      </div>
-    );
-  }
+    if (chan === 'webhook') {
+      provider = 'Custom Webhook';
+      lastSync = 'Listening';
+    } else if (chan === 'whatsapp') {
+      provider = 'WhatsApp (Demo Mode)';
+      statusLabel = 'simulating';
+    } else if (chan === 'email') {
+      provider = 'Email Engine';
+      lastSync = 'System Sender Active';
+    } else {
+      provider = chan.charAt(0).toUpperCase() + chan.slice(1).replace('_', ' ');
+    }
 
-  // Graceful handling of connected state metrics.
-  // Until event ingestion maps back to integration IDs, we display 0s to maintain schema.
-  const CONNECTED = (integrations || []).map(integ => ({
-    provider: integ.provider.charAt(0).toUpperCase() + integ.provider.slice(1).replace('_', ' '),
-    status: integ.status,
-    lastSync: integ.last_synced_at ? new Date(integ.last_synced_at).toLocaleDateString() : 'Awaiting sync',
-    eventCount: '0'
-  }));
+    return {
+      provider,
+      status: statusLabel,
+      lastSync,
+      eventCount: '0'
+    }
+  });
 
-  // Ensure webhook shows as an option if not explicitly created yet, since Catalyst always supports inbound webhooks
-  if (!CONNECTED.find(c => c.provider.toLowerCase() === 'webhook')) {
-    CONNECTED.unshift({
-      provider: 'Webhook',
+  if (CONNECTED.length === 0) {
+    // Failsafe for fully clean states
+    CONNECTED.push({
+      provider: 'System',
       status: 'active',
       lastSync: 'Live',
       eventCount: '0'

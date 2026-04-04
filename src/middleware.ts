@@ -59,10 +59,6 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
 
-    if (request.nextUrl.pathname.startsWith("/onboarding")) {
-      return response;
-    }
-
     // Check if user has a business workspace for protected dashboard routes
     const { data: membership } = await supabase
       .from("team_members")
@@ -71,9 +67,36 @@ export async function middleware(request: NextRequest) {
       .limit(1)
       .maybeSingle();
 
-    if (!membership) {
-      return NextResponse.redirect(new URL("/onboarding", request.url));
+    const hasWorkspace = !!membership?.business_id;
+
+    if (!hasWorkspace && !request.nextUrl.pathname.startsWith("/onboarding")) {
+       return NextResponse.redirect(new URL("/onboarding", request.url));
     }
+
+    if (hasWorkspace) {
+       // Evaluate precise onboarding completion barrier
+       const { data: completedLog } = await supabase
+         .from("audit_logs")
+         .select("id")
+         .eq("business_id", membership.business_id)
+         .eq("log_type", "ONBOARDING_COMPLETED")
+         .limit(1)
+         .maybeSingle();
+
+       const isOnboardingComplete = !!completedLog;
+
+       if (!isOnboardingComplete && !request.nextUrl.pathname.startsWith("/onboarding")) {
+          // Force back to onboarding if they haven't finished yet!
+          return NextResponse.redirect(new URL("/onboarding", request.url));
+       }
+
+       if (isOnboardingComplete && request.nextUrl.pathname.startsWith("/onboarding")) {
+          // Avoid letting finished users return to wizard
+          return NextResponse.redirect(new URL("/dashboard", request.url));
+       }
+    }
+
+    return response;
   }
 
   return response;

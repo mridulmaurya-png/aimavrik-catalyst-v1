@@ -107,23 +107,23 @@ export function StepWorkspace({ onNext, isLoading }: { onNext: (data: any) => Pr
   )
 }
 
-/* --- Step 2: Source --- */
-export function StepSource({ onNext }: { onNext: (source: string) => void }) {
-  const sources = [
-    { id: 'webhook', name: 'Webhook', icon: Zap, desc: 'Any custom system' },
-    { id: 'shopify', name: 'Shopify', icon: ShoppingCart, desc: 'E-commerce events' },
-    { id: 'meta', name: 'Meta Lead Ads', icon: Layout, desc: 'Social lead capture' },
-    { id: 'calendly', name: 'Calendly', icon: Calendar, desc: 'Appointment booking' },
+/* --- Step 2: Use Case --- */
+export function StepUseCase({ onNext }: { onNext: (source: string) => void }) {
+  const cases = [
+    { id: 'leads', name: 'Recover lost leads', icon: Zap, desc: 'Engage stale inquiries automatically' },
+    { id: 'speed', name: 'Improve follow-up speed', icon: Clock, desc: 'Instant response via API' },
+    { id: 'repeat', name: 'Increase repeat purchases', icon: ShoppingCart, desc: 'Win-back campaigns' },
+    { id: 'ops', name: 'Reduce manual ops', icon: Layout, desc: 'Automate tracking and sorting' },
   ]
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="text-center space-y-2">
-        <h1 className="text-heading-1 font-bold tracking-tight">Connect your first source</h1>
-        <p className="text-brand-text-secondary text-body-md">Catalyst needs one data source to start receiving events.</p>
+        <h1 className="text-heading-1 font-bold tracking-tight">Primary execution goal</h1>
+        <p className="text-brand-text-secondary text-body-md">What's the main driver for automating your workflow?</p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {sources.map((s) => (
+        {cases.map((s) => (
           <Card 
             key={s.id} 
             className="p-6 cursor-pointer group hover:border-brand-primary/50 transition-all bg-brand-bg-secondary/30"
@@ -141,132 +141,133 @@ export function StepSource({ onNext }: { onNext: (source: string) => void }) {
           </Card>
         ))}
       </div>
-      <div className="flex justify-center">
-        <button className="text-[12px] text-brand-text-tertiary font-medium hover:text-brand-text-secondary transition-colors underline underline-offset-4">
-          I'll connect this later in settings
-        </button>
-      </div>
     </div>
   )
 }
 
-/* --- Step 2.5: Test Event --- */
-export function StepTestEvent({ source, onNext }: { source: string, onNext: () => void }) {
-  const [testing, setTesting] = React.useState(false)
-  const [status, setStatus] = React.useState<'idle' | 'linking' | 'success'>('idle')
+/* --- Step 3: Connections --- */
+export function StepConnections({ onNext, isLoading }: { onNext: (data: {source: string, channel: string}) => void; isLoading?: boolean }) {
+  const [source, setSource] = React.useState("")
+  const [channel, setChannel] = React.useState("")
+  const [webhookUrl] = React.useState("https://api.catalyst.com/w/x98f2")
+  const [copied, setCopied] = React.useState(false)
 
-  const triggerTest = () => {
-    setTesting(true)
-    setStatus('linking')
-    setTimeout(() => {
-      setStatus('success')
-      setTesting(false)
-    }, 2000)
+  const copyWebhook = () => {
+    navigator.clipboard.writeText(webhookUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
+  const isReady = source && channel;
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="text-center space-y-2">
-        <h1 className="text-heading-1 font-bold tracking-tight">Send a test event</h1>
-        <p className="text-brand-text-secondary text-body-md">Trigger a sample event to verify your {source} connection.</p>
+        <h1 className="text-heading-1 font-bold tracking-tight">Connect endpoints</h1>
+        <p className="text-brand-text-secondary text-body-md">Establish exactly how Catalyst receives data and takes action.</p>
       </div>
-      <Card variant="elevated" className="p-10 space-y-8 flex flex-col items-center">
-        <div className="w-20 h-20 rounded-2xl bg-brand-bg-primary border border-brand-border flex items-center justify-center relative">
-          <Zap className={cn("w-10 h-10 transition-colors", status === 'success' ? "text-brand-highlight" : "text-brand-text-tertiary")} />
-          {status === 'success' && (
-            <div className="absolute -top-2 -right-2 w-6 h-6 bg-functional-success rounded-full flex items-center justify-center animate-in zoom-in">
-              <CheckCircle2 className="w-4 h-4 text-white" />
-            </div>
-          )}
-        </div>
-
-        <div className="w-full space-y-4">
-          <div className="p-4 rounded-xl border border-brand-border bg-brand-bg-primary flex flex-col items-center gap-3">
-            <p className="text-[12px] font-bold text-brand-text-tertiary uppercase tracking-widest">System Status</p>
-            <div className="flex items-center gap-3">
-              <span className={cn("text-body-sm font-medium", status === 'success' ? "text-brand-text-primary" : "text-brand-text-tertiary")}>
-                {status === 'idle' ? "Waiting for signal..." : 
-                 status === 'linking' ? "Processing incoming payload..." : 
-                 "Event 'checkout_completed' received"}
-              </span>
-              {status === 'linking' && <RefreshCw className="w-3 h-3 text-brand-primary animate-spin" />}
-            </div>
+      
+      <div className="grid lg:grid-cols-2 gap-6">
+        <Card variant="elevated" className="p-6 space-y-6">
+          <div className="space-y-1">
+            <h3 className="text-body-lg font-bold">1. Select Source</h3>
+            <p className="text-[11px] text-brand-text-tertiary">Where are events coming from?</p>
           </div>
-        </div>
-
-        <div className="w-full flex flex-col gap-3">
-          <Button 
-            className="w-full h-12 gap-2 text-body-md font-bold" 
-            disabled={testing}
-            onClick={status === 'success' ? onNext : triggerTest}
-          >
-            {status === 'success' ? "Setup Verified" : testing ? "Sending..." : "Send Test Event"}
-            <ArrowRight className="w-4 h-4" />
-          </Button>
-          {status !== 'success' && (
-            <Button variant="ghost" className="h-10 text-[12px] font-medium text-brand-text-tertiary" onClick={onNext}>
-              Skip verification
-            </Button>
-          )}
-        </div>
-      </Card>
-    </div>
-  )
-}
-
-/* --- Step 3: Channel --- */
-export function StepChannel({ onNext }: { onNext: (chan: string) => void }) {
-  return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="text-center space-y-2">
-        <h1 className="text-heading-1 font-bold tracking-tight">Connect communication</h1>
-        <p className="text-brand-text-secondary text-body-md">Catalyst uses WhatsApp or email to execute actions.</p>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {[
-          { id: 'wa', name: 'WhatsApp', icon: MessageSquare, desc: 'Fast, high-reply rate' },
-          { id: 'mail', name: 'Email', icon: Mail, desc: 'Official & transaction ready' },
-        ].map((c) => (
-          <Card 
-            key={c.id} 
-            className="p-6 cursor-pointer group hover:border-brand-primary/50 transition-all bg-brand-bg-secondary/30"
-            onClick={() => onNext(c.name)}
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-brand-bg-primary border border-brand-border flex items-center justify-center">
-                <c.icon className="w-6 h-6 text-brand-text-tertiary group-hover:text-brand-primary transition-colors" />
+          <div className="space-y-3">
+            {[
+              { id: 'webhook', name: 'Custom Webhook' },
+              { id: 'shopify', name: 'Shopify' },
+              { id: 'meta', name: 'Meta Lead Ads' }
+            ].map(s => (
+              <div 
+                key={s.id}
+                onClick={() => setSource(s.id)} 
+                className={cn(
+                  "p-3 rounded-lg border cursor-pointer transition-all flex justify-between items-center",
+                  source === s.id ? "bg-brand-primary/10 border-brand-primary" : "bg-brand-bg-primary border-brand-border hover:border-brand-primary/30"
+                )}
+              >
+                <span className={cn("text-body-sm font-bold", source === s.id ? "text-brand-primary" : "text-brand-text-primary")}>{s.name}</span>
+                {source === s.id && <CheckCircle2 className="w-4 h-4 text-brand-primary" />}
               </div>
-              <div className="space-y-0.5">
-                <p className="text-body-md font-bold text-brand-text-primary">{c.name}</p>
-                <p className="text-[11px] text-brand-text-tertiary font-medium">{c.desc}</p>
+            ))}
+          </div>
+
+          {source === 'webhook' && (
+            <div className="pt-2 animate-in fade-in">
+              <label className="text-[10px] uppercase font-bold text-brand-text-tertiary tracking-widest block mb-2">Endpoint URL</label>
+              <div className="flex gap-2">
+                <Input value={webhookUrl} readOnly className="bg-brand-bg-primary font-mono text-[11px]" />
+                <Button variant="secondary" onClick={copyWebhook} className="px-3 shrink-0">
+                  {copied ? "Copied!" : "Copy"}
+                </Button>
               </div>
             </div>
-          </Card>
-        ))}
+          )}
+        </Card>
+
+        <Card variant="elevated" className="p-6 space-y-6">
+          <div className="space-y-1">
+            <h3 className="text-body-lg font-bold">2. Select Channel</h3>
+            <p className="text-[11px] text-brand-text-tertiary">How should Catalyst communicate?</p>
+          </div>
+          <div className="space-y-3">
+            {[
+              { id: 'email', name: 'Email (Configured via System Sender)' },
+              { id: 'whatsapp', name: 'WhatsApp (Demo Mode)' }
+            ].map(c => (
+              <div 
+                key={c.id}
+                onClick={() => setChannel(c.id)} 
+                className={cn(
+                  "p-3 flex justify-between items-center rounded-lg border cursor-pointer transition-all",
+                  channel === c.id ? "bg-brand-primary/10 border-brand-primary" : "bg-brand-bg-primary border-brand-border hover:border-brand-primary/30"
+                )}
+              >
+                <span className={cn("text-body-sm font-bold", channel === c.id ? "text-brand-primary" : "text-brand-text-primary")}>{c.name}</span>
+                {channel === c.id && <CheckCircle2 className="w-4 h-4 text-brand-primary" />}
+              </div>
+            ))}
+          </div>
+          {channel === 'whatsapp' && (
+            <div className="pt-2 p-3 rounded bg-functional-warning/10 border border-functional-warning/20 animate-in fade-in">
+              <p className="text-[11px] text-functional-warning font-medium">Running in Demo Mode. WhatsApp actions will be simulated securely without consuming Meta tokens.</p>
+            </div>
+          )}
+          {channel === 'email' && (
+            <div className="pt-2 p-3 rounded bg-brand-primary/5 border border-brand-primary/10 animate-in fade-in">
+              <p className="text-[11px] text-brand-text-secondary font-medium">Emails will be dispatched via secure.catalyst.com domain until custom SMTP is attached.</p>
+            </div>
+          )}
+        </Card>
       </div>
-      <div className="flex justify-center flex-col items-center gap-4">
-        <p className="text-[11px] text-brand-text-tertiary font-medium">You can connect multiple channels later.</p>
-        <button className="text-[12px] text-brand-text-tertiary font-medium hover:text-brand-text-secondary transition-colors underline underline-offset-4" onClick={() => onNext('Skip')}>
-          I'll connect these later
-        </button>
+
+      <div className="flex justify-end pt-4">
+        <Button 
+          className="w-full md:w-auto h-12 px-8 text-body-md font-bold" 
+          onClick={() => onNext({source, channel})}
+          disabled={!isReady || isLoading}
+        >
+          {isLoading ? "Saving Configurations..." : "Confirm & Continue"}
+        </Button>
       </div>
     </div>
   )
 }
 
 /* --- Step 4: Playbook --- */
-export function StepPlaybook({ onNext }: { onNext: (play: string) => void; isLoading?: boolean }) {
+export function StepPlaybook({ onNext, isLoading }: { onNext: (play: string) => void; isLoading?: boolean }) {
   const playbooks = [
-    { id: 'lead', name: 'New Lead Instant Follow-up', desc: 'Trigger WhatsApp instantly on form submission.', outcome: '30% higher conversion' },
-    { id: 'cart', name: 'Abandoned Cart Recovery', desc: 'Revive lost checkouts with personalized offers.', outcome: '12% revenue recovery' },
-    { id: 'prop', name: 'Proposal Follow-up', desc: 'Automatically nudge clients 2 days after proposal.', outcome: '40% faster closing' },
+    { id: 'lead', name: 'New Lead Instant Follow-up', desc: 'Engage new submissions immediately.', outcome: 'High Conversion' },
+    { id: 'cart', name: 'Abandoned Inquiry Recovery', desc: 'Revive lost checkouts automatically.', outcome: 'Revenue Recovery' },
+    { id: 'prop', name: 'Proposal / Invoice Nudge', desc: 'Secure payments 2 days post-send.', outcome: 'Faster Closing' },
   ]
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="text-center space-y-2">
-        <h1 className="text-heading-1 font-bold tracking-tight">Activate your first playbook</h1>
-        <p className="text-brand-text-secondary text-body-md">Choose a system to start automating conversion.</p>
+        <h1 className="text-heading-1 font-bold tracking-tight">Activate your execution rules</h1>
+        <p className="text-brand-text-secondary text-body-md">Choose the primary action loop you want running.</p>
       </div>
       <div className="space-y-4">
         {playbooks.map((p) => (
@@ -279,10 +280,13 @@ export function StepPlaybook({ onNext }: { onNext: (play: string) => void; isLoa
               <p className="text-body-md font-bold text-brand-text-primary">{p.name}</p>
               <p className="text-[12px] text-brand-text-secondary leading-tight">{p.desc}</p>
             </div>
-            <div className="text-right shrink-0">
-              <Badge variant="info" className="bg-brand-primary/10 text-brand-primary border-brand-primary/20 text-[10px] py-0 px-2">
+            <div className="text-right shrink-0 flex items-center gap-4">
+              <Badge variant="info" className="bg-brand-primary/10 text-brand-primary border-brand-primary/20 text-[10px] py-0 px-2 opacity-0 md:opacity-100">
                 {p.outcome}
               </Badge>
+              <Button disabled={isLoading} variant="secondary" className="h-8 text-[11px] px-4 group-hover:bg-brand-primary group-hover:text-white transition-colors border border-brand-border">
+                Select
+              </Button>
             </div>
           </Card>
         ))}
@@ -292,7 +296,7 @@ export function StepPlaybook({ onNext }: { onNext: (play: string) => void; isLoa
 }
 
 /* --- Step 5: Success --- */
-export function StepSuccess({ state }: { state: any; onFinish?: () => void }) {
+export function StepSuccess({ state }: { state: any }) {
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-1000">
       <div className="flex flex-col items-center justify-center space-y-4">
@@ -301,8 +305,8 @@ export function StepSuccess({ state }: { state: any; onFinish?: () => void }) {
           <div className="absolute inset-0 rounded-full border-4 border-functional-success animate-ping opacity-20" />
         </div>
         <div className="text-center space-y-2">
-          <h1 className="text-heading-1 font-bold tracking-tight">Your system is live</h1>
-          <p className="text-brand-text-secondary text-body-md">Catalyst is now tracking activity and executing actions.</p>
+          <h1 className="text-heading-1 font-bold tracking-tight">Your infrastructure is live</h1>
+          <p className="text-brand-text-secondary text-body-md">Catalyst has activated your components successfully.</p>
         </div>
       </div>
 
@@ -310,47 +314,43 @@ export function StepSuccess({ state }: { state: any; onFinish?: () => void }) {
         <Card className="p-5 border-brand-border/40 bg-white/[0.01] space-y-4">
           <div className="flex items-center gap-2 text-[10px] text-brand-text-tertiary font-bold uppercase tracking-widest">
             <Database className="w-3.5 h-3.5" />
-            Source
+            Source Configured
           </div>
-          <p className="text-body-sm font-bold text-brand-text-secondary truncate">{state.source || 'Connected'}</p>
+          <p className="text-body-sm font-bold text-brand-text-secondary truncate capitalize">{state.source || 'Ready'}</p>
           <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-functional-success" />
-            <span className="text-[10px] text-brand-text-tertiary font-medium">Valid Signals: 1</span>
+            <div className="w-1.5 h-1.5 rounded-full bg-functional-success shadow-[0_0_8px_#00E676]" />
+            <span className="text-[10px] text-brand-text-tertiary font-medium">Listening on Port</span>
           </div>
         </Card>
         <Card className="p-5 border-brand-border/40 bg-white/[0.01] space-y-4">
           <div className="flex items-center gap-2 text-[10px] text-brand-text-tertiary font-bold uppercase tracking-widest">
             <MessageSquare className="w-3.5 h-3.5" />
-            Channel
+            Channel Bound
           </div>
-          <p className="text-body-sm font-bold text-brand-text-secondary truncate">{state.channel || 'Not Connected'}</p>
+          <p className="text-body-sm font-bold text-brand-text-secondary truncate capitalize">{state.channel || 'Ready'}</p>
           <div className="flex items-center gap-2">
-            <div className={cn("w-1.5 h-1.5 rounded-full", state.channel === 'Skip' ? "bg-brand-text-tertiary" : "bg-functional-success")} />
-            <span className="text-[10px] text-brand-text-tertiary font-medium">Status: {state.channel === 'Skip' ? 'Delayed' : 'Active'}</span>
+            <div className="w-1.5 h-1.5 rounded-full bg-functional-success shadow-[0_0_8px_#00E676]" />
+            <span className="text-[10px] text-brand-text-tertiary font-medium">Ready to Dispatch</span>
           </div>
         </Card>
         <Card className="p-5 border-brand-border/40 bg-white/[0.01] space-y-4">
           <div className="flex items-center gap-2 text-[10px] text-brand-text-tertiary font-bold uppercase tracking-widest">
             <Zap className="w-3.5 h-3.5" />
-            Playbook
+            Playbook Active
           </div>
-          <p className="text-body-sm font-bold text-brand-text-secondary truncate">{state.playbook || 'None'}</p>
+          <p className="text-body-sm font-bold text-brand-text-primary leading-tight line-clamp-2 pr-2">{state.playbook || 'Default Rules'}</p>
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-brand-primary" />
-            <span className="text-[10px] text-brand-text-tertiary font-medium">Execution: Active</span>
+            <span className="text-[10px] text-brand-text-tertiary font-medium">Execution Engine: OK</span>
           </div>
         </Card>
       </div>
 
-      <div className="flex flex-col gap-3">
-        <Button className="w-full h-14 gap-3 text-body-lg font-bold" onClick={() => window.location.href = '/'}>
-          Launch Command Center
+      <div className="flex flex-col items-center gap-3 mt-8">
+        <Button className="w-full max-w-md h-14 gap-3 text-body-lg font-bold" onClick={() => window.location.href = '/dashboard'}>
+          Enter Command Center
           <ArrowRight className="w-5 h-5" />
         </Button>
-        <div className="flex justify-center gap-6">
-          <button className="text-[12px] text-brand-text-tertiary font-medium hover:text-brand-primary transition-colors">View Event Logs</button>
-          <button className="text-[12px] text-brand-text-tertiary font-medium hover:text-brand-primary transition-colors">Setup Workspace Details</button>
-        </div>
       </div>
     </div>
   )

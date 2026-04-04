@@ -14,8 +14,18 @@ import Link from "next/link"
 export function ContactTable({ contacts }: { contacts: any[] }) {
   if (!contacts || contacts.length === 0) {
     return (
-      <div className="p-16 border rounded-xl border-dashed border-brand-border flex items-center justify-center bg-brand-bg-secondary/30">
-        <p className="text-brand-text-tertiary font-bold tracking-wider uppercase text-sm">No Contacts Found</p>
+      <div className="p-16 border rounded-xl border-dashed border-brand-border flex flex-col items-center justify-center bg-brand-bg-secondary/30 gap-3">
+        <div className="w-12 h-12 rounded-full bg-brand-bg-primary border border-brand-border flex items-center justify-center">
+          <svg className="w-5 h-5 text-brand-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+        </div>
+        <div className="text-center">
+          <h3 className="text-body-lg font-bold text-brand-text-primary">No contacts synced yet</h3>
+          <p className="text-brand-text-tertiary text-body-sm max-w-sm mt-1">
+            Contacts will automatically populate here once your integrated channels capture new inbound logic or execute outbound routes.
+          </p>
+        </div>
       </div>
     );
   }
