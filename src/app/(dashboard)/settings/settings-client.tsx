@@ -31,17 +31,18 @@ export default function SettingsClient({ initialBusiness, initialSettings }: { i
     (initialSettings.brand_voice_json?.restrictedWords || []).join(', ')
   )
 
+  // Orchestration State
+  const [execMode, setExecMode] = React.useState(initialSettings.config_json?.execution_mode || 'internal')
+  const [n8nUrl, setN8nUrl] = React.useState(initialSettings.config_json?.n8n_webhook_url || '')
+
   const handleSave = async () => {
     setSaving(true)
     try {
       if (activeTab === 'profile') {
         const supabase = createClient()
-        // Basic business table updates (skipped for server action brevity, doing direct if safe)
-        // Wait, best is via Server actions. I'll just update settings for now as requested.
         await updateBusinessSetting('support_email', supportEmail)
         await updateBusinessSetting('support_phone', supportPhone)
         
-        // Let's do a direct update for `businesses` table just for thoroughness here since row access fits RLS
         const { data: { user } } = await supabase.auth.getUser()
         if (user) {
           await supabase.from("businesses").update({
@@ -57,6 +58,12 @@ export default function SettingsClient({ initialBusiness, initialSettings }: { i
         await updateBusinessSetting('brand_voice_json', {
           tone,
           restrictedWords: words
+        })
+      } else if (activeTab === 'orchestration') {
+        await updateBusinessSetting('config_json', {
+          ...initialSettings.config_json,
+          execution_mode: execMode,
+          n8n_webhook_url: n8nUrl
         })
       }
       
@@ -178,7 +185,48 @@ export default function SettingsClient({ initialBusiness, initialSettings }: { i
         </div>
       )}
 
-      {activeTab !== 'profile' && activeTab !== 'voice' && (
+      {activeTab === 'orchestration' && (
+        <div className="max-w-4xl space-y-10 animate-in fade-in duration-500">
+          <SettingsFormGroup title="Execution Layer" subtitle="Configure how Catalyst executes and synchronizes actions.">
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-label-sm font-bold text-brand-text-secondary">Execution Mode</label>
+                <div className="flex gap-2">
+                  <Badge 
+                    variant={execMode === 'internal' ? "success" : "neutral"} 
+                    className="px-4 py-1.5 cursor-pointer hover:bg-white/[0.05]"
+                    onClick={() => setExecMode('internal')}
+                  >
+                    Internal Only
+                  </Badge>
+                  <Badge 
+                    variant={execMode === 'n8n' ? "success" : "neutral"} 
+                    className="px-4 py-1.5 cursor-pointer hover:bg-white/[0.05]"
+                    onClick={() => setExecMode('n8n')}
+                  >
+                    n8n Handoff (Webhook)
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-brand-text-tertiary pt-1">Internal handles email/whatsapp directly. n8n forwards the entire action payload for external orchestration.</p>
+              </div>
+
+              {execMode === 'n8n' && (
+                <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                  <label className="text-label-sm font-bold text-brand-text-secondary">n8n Webhook URL</label>
+                  <Input 
+                    value={n8nUrl}
+                    onChange={e => setN8nUrl(e.target.value)}
+                    className="w-full bg-brand-bg-primary h-11"
+                    placeholder="e.g. https://n8n.your-domain.com/webhook/..."
+                  />
+                </div>
+              )}
+            </div>
+          </SettingsFormGroup>
+        </div>
+      )}
+
+      {activeTab !== 'profile' && activeTab !== 'voice' && activeTab !== 'orchestration' && (
         <div className="p-12 text-center space-y-4">
           <ShieldCheck className="w-12 h-12 text-brand-text-tertiary mx-auto opacity-20" />
           <p className="text-body-sm text-brand-text-tertiary uppercase tracking-widest font-bold">Additional configurations in review</p>

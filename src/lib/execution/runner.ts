@@ -130,14 +130,46 @@ async function executeSingleAction(action: any) {
     return { action_id: action.id, status: "cancelled", reason: validation.reason };
   }
 
-  // 3. AI MESSAGE GENERATION
+  // Fetch settings for orchestration and delivery
+  const { data: businessSettings } = await supabase
+      .from("business_settings")
+      .select("*")
+      .eq("business_id", action.business_id)
+      .single();
+
+  const configJson = businessSettings?.config_json || {};
+  
+  // 3. EXTERNAL ORCHESTRATION (n8n Handoff)
+  if (configJson.execution_mode === "n8n" && configJson.n8n_webhook_url) {
+    try {
+      const response = await fetch(configJson.n8n_webhook_url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, businessSettings: { id: businessSettings.id } })
+      });
+      
+      if (!response.ok) throw new Error("n8n Webhook rejected payload");
+      
+      await supabase.from("actions").update({ status: "completed", executed_at: new Date().toISOString() }).eq("id", action.id);
+      await supabase.from("audit_logs").insert({
+        business_id: action.business_id, action_id: action.id, log_type: "execution_handed_off_n8n",
+        log_data_json: { webhook_url: configJson.n8n_webhook_url }
+      });
+      return { action_id: action.id, status: "completed", n8n_handed_off: true };
+    } catch (err: any) {
+      // If n8n fails, we retry just like a delivery failure
+      return await handleActionFailure(action, err, true);
+    }
+  }
+
+  // 4. AI MESSAGE GENERATION (Internal Mode)
   const channel = action.action_type === "send_whatsapp" ? "whatsapp" : "email";
   
   const gCtx = {
     playbook_type: action.payload_json?.intent || "unknown",
     action_type: action.action_type,
     trigger_event: action.payload_json?.trigger_event || "signal",
-    business_tone: "professional", // would fetch from business profile config
+    business_tone: businessSettings?.brand_voice_json?.tone || "professional",
     contact_first_name: "Customer"  // would fetch from contact
   };
 
@@ -148,17 +180,11 @@ async function executeSingleAction(action: any) {
     log_data_json: { used_fallback: genMsg.is_fallback, generated_length: genMsg.body.length }
   });
 
-  // 4. DELIVERY LAYER
+  // 5. DELIVERY LAYER
   await supabase.from("audit_logs").insert({
     business_id: action.business_id, action_id: action.id, log_type: "delivery_attempted",
     log_data_json: { channel }
   });
-
-  const { data: businessSettings } = await supabase
-      .from("business_settings")
-      .select("*")
-      .eq("business_id", action.business_id)
-      .single();
 
   const mockPayload = { to: "user@example.com", body: genMsg.body, subject: genMsg.subject };
   let delivery;

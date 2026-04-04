@@ -2,6 +2,7 @@ import { ContactProfileCard } from "@/components/contacts/contact-profile";
 import { ActivityTimeline } from "@/components/contacts/activity-timeline";
 import { AIContactBrief } from "@/components/contacts/ai-brief";
 import { AssignedPlaybooks, QuickActions } from "@/components/contacts/playbook-status";
+import { InterventionButton } from "@/components/contacts/intervention-button";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ShieldAlert, Flag, UserCheck } from "lucide-react";
@@ -128,10 +129,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" disabled title="Flag for manual intervention — available in production" className="h-11 bg-white/[0.02] border border-brand-border gap-2 opacity-60 cursor-not-allowed">
-            <Flag className="w-4 h-4" />
-            Flag for review
-          </Button>
+          <InterventionButton contactId={contact.id} isFlagged={!!meta.needs_intervention} />
           <Button variant="ghost" disabled title="Owner assignment — available in production" className="h-11 bg-white/[0.02] border border-brand-border gap-2 opacity-60 cursor-not-allowed">
             <UserCheck className="w-4 h-4" />
             Assign owner

@@ -11,7 +11,7 @@ import { formatCurrency } from "@/lib/config/constants";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { TrendingUp, Sparkles, ArrowRight, Target, DollarSign, RefreshCw, Megaphone } from "lucide-react";
+import { TrendingUp, Sparkles, ArrowRight, Target, DollarSign, RefreshCw, Megaphone, ShieldAlert, Flag } from "lucide-react";
 
 export default async function DashboardPage() {
   const { businessId, currencyCode } = await requireWorkspace();
@@ -78,6 +78,14 @@ export default async function DashboardPage() {
     .select("id, action_type, channel, status, created_at, contact:contacts(full_name)")
     .eq("business_id", businessId)
     .order("created_at", { ascending: false })
+    .limit(5);
+
+  // 7c. Fetch intervention queue
+  const { data: interventionQueue } = await supabase
+    .from("contacts")
+    .select("id, full_name, stage, metadata_json")
+    .eq("business_id", businessId)
+    .contains("metadata_json", { needs_intervention: true })
     .limit(5);
 
   // 8. Compute segments for revenue panels
@@ -214,22 +222,49 @@ export default async function DashboardPage() {
         </section>
       </div>
 
-      {/* SECTION 3: AI SUGGESTED ACTIONS + ACTIVE PLAYBOOKS */}
+      {/* SECTION 3: INTERVENTION QUEUE & AI ORCHESTRATION */}
       <div className="grid lg:grid-cols-3 gap-8">
         <section className="lg:col-span-2 space-y-6">
+          <div className="flex items-center gap-2 text-functional-error">
+            <ShieldAlert className="w-5 h-5" />
+            <h3 className="text-heading-3 font-bold text-brand-text-primary">Intervention Queue</h3>
+          </div>
+          {interventionQueue && interventionQueue.length > 0 ? (
+            <div className="space-y-3">
+              {interventionQueue.map((c: any) => (
+                <Card key={c.id} variant="elevated" className="p-4 flex items-center justify-between gap-4 border-functional-error/30 bg-functional-error/5 group transition-all hover:bg-functional-error/10">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Flag className="w-4 h-4 text-functional-error shrink-0" />
+                    <div>
+                      <p className="text-body-sm font-bold text-brand-text-primary truncate">{c.full_name}</p>
+                      <p className="text-[11px] text-functional-error/80 truncate">Manual review requested · {c.stage}</p>
+                    </div>
+                  </div>
+                  <Link href={`/contacts/${c.id}`} className="text-[11px] text-functional-error font-bold shrink-0 hover:underline flex items-center gap-1">
+                    Resolve <ArrowRight className="w-3 h-3" />
+                  </Link>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="p-8 border border-brand-border border-dashed rounded-xl flex items-center justify-center text-center">
+              <p className="text-brand-text-tertiary text-[11px] font-bold uppercase tracking-widest">Queue Clear</p>
+            </div>
+          )}
+        </section>
+
+        {/* AI SUGGESTED ACTIONS */}
+        <section className="lg:col-span-1 space-y-4">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-brand-primary fill-brand-primary/20" />
-            <h3 className="text-heading-3 font-bold">AI Suggested Actions</h3>
+            <Sparkles className="w-4 h-4 text-brand-primary fill-brand-primary/20" />
+            <h4 className="text-heading-4 font-bold">Suggested Actions</h4>
           </div>
           {suggestedActions.length > 0 ? (
             <div className="space-y-3">
-              {suggestedActions.map((action, i) => (
-                <Card key={i} variant="elevated" className="p-4 flex items-center justify-between gap-4 group hover:border-brand-primary/20 transition-all">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className={`w-2 h-2 rounded-full shrink-0 ${action.confidence === 'high' ? 'bg-brand-primary' : 'bg-brand-text-tertiary'}`} />
-                    <p className="text-body-sm text-brand-text-primary truncate">{action.text}</p>
-                  </div>
-                  <Link href={action.href} className="text-[11px] text-brand-primary font-bold shrink-0 hover:underline flex items-center gap-1">
+              {suggestedActions.slice(0, 3).map((action, i) => (
+                <Card key={i} variant="elevated" className="p-4 space-y-2 group hover:border-brand-primary/20 transition-all">
+                  <p className="text-[11px] text-brand-text-primary leading-relaxed">{action.text}</p>
+                  <Link href={action.href} className="text-[9px] text-brand-primary uppercase font-bold tracking-wider hover:underline flex items-center gap-1">
                     {action.cta} <ArrowRight className="w-3 h-3" />
                   </Link>
                 </Card>
@@ -238,14 +273,9 @@ export default async function DashboardPage() {
           ) : (
             <Card variant="elevated" className="p-6 text-center">
               <Sparkles className="w-6 h-6 text-brand-text-tertiary mx-auto opacity-30 mb-2" />
-              <p className="text-body-sm text-brand-text-tertiary">AI suggestions will appear as your pipeline grows.</p>
+              <p className="text-[11px] text-brand-text-tertiary">AI is monitoring active pipeline.</p>
             </Card>
           )}
-        </section>
-
-        {/* EXECUTION HEALTH */}
-        <section className="lg:col-span-1">
-          <ExecutionHealth metrics={HEALTH_MAP as any} />
         </section>
       </div>
 

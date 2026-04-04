@@ -12,27 +12,40 @@ export interface GeneratedMessage {
   is_fallback: boolean;
 }
 
-// Simulated simple static fallbacks to guarantee robust handling if LLM fails
 const FALLBACK_TEMPLATES: Record<string, any> = {
-  "Abandoned Cart Recovery": {
-    whatsapp: (name: string) => `Hi ${name}, looks like you left something behind! Let us know if you need help checking out.`,
-    email: {
-      subject: "Complete your order",
-      body: (name: string) => `Hi ${name},\n\nWe noticed you left some items in your cart. Returning is easy - just click the link below to finalize your purchase.\n\nThank you!`
-    }
-  },
-  "New Lead Instant Follow-up": {
-    whatsapp: (name: string) => `Hi ${name}, thanks for reaching out! A team member will review your request shortly.`,
+  "Instant Lead Follow-Up": {
+    whatsapp: (name: string) => `Hi ${name}, thanks for reaching out! We've received your details and will be in contact shortly.`,
     email: {
       subject: "Thanks for your interest",
-      body: (name: string) => `Hi ${name},\n\nThank you for getting in touch. We have received your details and will be in contact shortly.\n\nBest regards,`
+      body: (name: string) => `Hi ${name},\n\nThank you for getting in touch. We have received your details and our team will review them immediately.\n\nBest regards,`
     }
   },
-  "Post-Purchase Upsell": {
-    whatsapp: (name: string) => `Hi ${name}, thanks again for your order! We thought you might also love these premium additions.`,
+  "No Response Recovery": {
+    whatsapp: (name: string) => `Hi ${name}, wanted to float this to the top of your inbox. Are you still interested?`,
     email: {
-      subject: "You might also like...",
-      body: (name: string) => `Hi ${name},\n\nWe appreciate your recent purchase. Based on what you bought, our team curated a few similar recommendations you might enjoy.`
+      subject: "Checking in",
+      body: (name: string) => `Hi ${name},\n\nI wanted to quickly follow up to see if you had any questions on our previous message. Let us know if you're still exploring options.\n\nBest,`
+    }
+  },
+  "Stale Lead Reactivation": {
+    whatsapp: (name: string) => `Hi ${name}, it's been a while! Are you still looking for a solution? We have some new updates you might like.`,
+    email: {
+      subject: "Still exploring?",
+      body: (name: string) => `Hi ${name},\n\nIt's been a while since we last connected. I wanted to see if solving this is still a priority for you right now?\n\nBest,`
+    }
+  },
+  "Cross-Sell Sequence": {
+    whatsapp: (name: string) => `Hi ${name}, thanks for being a great customer. Based on your setup, we thought you might benefit from our premium add-ons.`,
+    email: {
+      subject: "Enhance your setup",
+      body: (name: string) => `Hi ${name},\n\nThanks for your recent purchase. Many of our customers also leverage our add-ons to get even better results. Let us know if you'd like a quick overview.`
+    }
+  },
+  "Dormant Customer Reactivation": {
+    whatsapp: (name: string) => `Hi ${name}, we miss you! Come back and see what's new.`,
+    email: {
+      subject: "We miss you",
+      body: (name: string) => `Hi ${name},\n\nIt's been a while since your last activity. We've added a lot of new features recently and would love to welcome you back.`
     }
   },
   "DEFAULT": {
