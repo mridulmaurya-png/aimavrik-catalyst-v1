@@ -5,9 +5,10 @@ import { SettingsTabNav, SettingsFormGroup } from "@/components/settings/setting
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Save, ShieldCheck, Mail, MapPin, Phone, RefreshCw } from "lucide-react";
+import { Save, ShieldCheck, Mail, MapPin, Phone, RefreshCw, Coins } from "lucide-react";
 import { updateBusinessSetting } from "@/app/actions/settings";
 import { createClient } from "@/lib/supabase/client";
+import { SUPPORTED_CURRENCIES } from "@/lib/config/constants";
 
 export default function SettingsClient({ initialBusiness, initialSettings }: { initialBusiness: any, initialSettings: any }) {
   const [activeTab, setActiveTab] = React.useState('profile')
@@ -19,6 +20,7 @@ export default function SettingsClient({ initialBusiness, initialSettings }: { i
   const [website, setWebsite] = React.useState(initialBusiness.website || '')
   const [timezone, setTimezone] = React.useState(initialBusiness.timezone || '')
   const [businessType, setBusinessType] = React.useState(initialBusiness.business_type || '')
+  const [currencyCode, setCurrencyCode] = React.useState(initialBusiness.currency_code || 'INR')
   
   const [supportEmail, setSupportEmail] = React.useState(initialSettings.support_email || '')
   const [supportPhone, setSupportPhone] = React.useState(initialSettings.support_phone || '')
@@ -46,7 +48,8 @@ export default function SettingsClient({ initialBusiness, initialSettings }: { i
             business_name: businessName,
             website,
             timezone,
-            business_type: businessType
+            business_type: businessType,
+            currency_code: currencyCode
           }).eq("id", initialSettings.business_id)
         }
       } else if (activeTab === 'voice') {
@@ -103,6 +106,18 @@ export default function SettingsClient({ initialBusiness, initialSettings }: { i
               <div className="space-y-2">
                 <label className="text-label-sm font-bold text-brand-text-secondary">Business Category</label>
                 <Input value={businessType} onChange={e => setBusinessType(e.target.value)} className="bg-brand-bg-primary h-11" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-label-sm font-bold text-brand-text-secondary">Primary Currency</label>
+                <select 
+                  className="w-full h-11 bg-brand-bg-primary border border-brand-border rounded-lg px-4 text-body-sm text-brand-text-secondary focus:outline-none focus:border-brand-primary"
+                  value={currencyCode}
+                  onChange={e => setCurrencyCode(e.target.value)}
+                >
+                  {SUPPORTED_CURRENCIES.map(c => (
+                    <option key={c.code} value={c.code}>{c.symbol} {c.code} — {c.name}</option>
+                  ))}
+                </select>
               </div>
             </div>
           </SettingsFormGroup>

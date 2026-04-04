@@ -18,7 +18,7 @@ export async function requireWorkspace() {
   
   const { data: membership, error } = await supabase
     .from("team_members")
-    .select("business_id, role, businesses(id, business_name, business_type, website, timezone)")
+    .select("business_id, role, businesses(id, business_name, business_type, website, timezone, currency_code)")
     .eq("user_id", user.id)
     .limit(1)
     .maybeSingle();
@@ -27,10 +27,13 @@ export async function requireWorkspace() {
     redirect("/onboarding");
   }
 
+  const biz = Array.isArray(membership.businesses) ? membership.businesses[0] : membership.businesses;
+
   return {
     user,
     businessId: membership.business_id,
     role: membership.role,
-    business: Array.isArray(membership.businesses) ? membership.businesses[0] : membership.businesses
+    business: biz,
+    currencyCode: biz?.currency_code || 'INR'
   };
 }

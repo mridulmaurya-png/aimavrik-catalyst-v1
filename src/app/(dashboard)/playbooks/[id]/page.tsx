@@ -1,19 +1,19 @@
 import { requireWorkspace } from "@/lib/auth/context";
 import { createClient } from "@/lib/supabase/server";
-import { ShieldAlert } from "lucide-react";
+import { ShieldAlert, ChevronLeft } from "lucide-react";
 import PlaybookDetailClient from "@/components/playbooks/playbook-detail-client";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { ChevronLeft } from "lucide-react";
+import { formatCurrency } from "@/lib/config/constants";
 
-export default async function PlaybookDetailPage({ params }: { params: { id: string } }) {
-  const { businessId } = await requireWorkspace();
+export default async function PlaybookDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const { businessId, currencyCode } = await requireWorkspace();
   const supabase = await createClient();
 
   const { data: playbook, error } = await supabase
     .from("playbooks")
     .select("*")
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("business_id", businessId)
     .single();
 
@@ -33,5 +33,30 @@ export default async function PlaybookDetailPage({ params }: { params: { id: str
     );
   }
 
-  return <PlaybookDetailClient playbook={playbook} />;
+  // Fetch real performance stats
+  const { count: eventsCount } = await supabase
+    .from("events")
+    .select("*", { count: "exact", head: true })
+    .eq("business_id", businessId);
+
+  const { count: actionsCount } = await supabase
+    .from("actions")
+    .select("*", { count: "exact", head: true })
+    .eq("business_id", businessId)
+    .eq("playbook_id", id);
+
+  const { count: messagesCount } = await supabase
+    .from("messages")
+    .select("*", { count: "exact", head: true })
+    .eq("business_id", businessId);
+
+  const stats = {
+    eventsProcessed: eventsCount || 0,
+    actionsCreated: actionsCount || 0,
+    messagesSent: messagesCount || 0,
+    repliesReceived: 0,
+    currencyCode,
+  };
+
+  return <PlaybookDetailClient playbook={playbook} stats={stats} />;
 }

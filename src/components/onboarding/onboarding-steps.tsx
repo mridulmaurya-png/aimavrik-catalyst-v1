@@ -19,12 +19,14 @@ import {
   Rocket
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { SUPPORTED_CURRENCIES } from "@/lib/config/constants"
 
 /* --- Step 1: Workspace --- */
 export function StepWorkspace({ onNext, isLoading }: { onNext: (data: any) => Promise<void> | void; isLoading?: boolean }) {
   const [name, setName] = React.useState("")
   const [type, setType] = React.useState("D2C / E-commerce")
   const [timezone, setTimezone] = React.useState("Asia/Kolkata")
+  const [currencyCode, setCurrencyCode] = React.useState("INR")
   const [error, setError] = React.useState("")
 
   const handleSubmit = async () => {
@@ -34,7 +36,7 @@ export function StepWorkspace({ onNext, isLoading }: { onNext: (data: any) => Pr
     }
     setError("");
     try {
-      await onNext({ name: name.trim(), type, timezone });
+      await onNext({ name: name.trim(), type, timezone, currency_code: currencyCode });
     } catch (e: any) {
       setError(e.message || "We couldn't create your workspace. Please try again.");
     }
@@ -92,6 +94,19 @@ export function StepWorkspace({ onNext, isLoading }: { onNext: (data: any) => Pr
                 <option value="Europe/London">Europe/London</option>
               </select>
             </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-label-sm font-bold text-brand-text-secondary">Primary Currency</label>
+            <select 
+              className="w-full h-12 bg-brand-bg-primary border border-brand-border rounded-lg px-4 text-body-sm text-brand-text-secondary focus:outline-none focus:border-brand-primary disabled:opacity-50"
+              value={currencyCode}
+              onChange={(e) => setCurrencyCode(e.target.value)}
+              disabled={isLoading}
+            >
+              {SUPPORTED_CURRENCIES.map(c => (
+                <option key={c.code} value={c.code}>{c.symbol} {c.code} — {c.name}</option>
+              ))}
+            </select>
           </div>
         </div>
         <Button 

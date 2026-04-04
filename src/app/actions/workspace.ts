@@ -57,8 +57,14 @@ export async function bootstrapWorkspace(businessId: string) {
         config_json: {
           delay: "5m",
           channel: "whatsapp",
-          category: "Acquisition",
-          description: "Automatically sends a personalized follow-up within minutes of a new lead entering the system via webhook, form, or CSV import."
+          category: "lead_conversion",
+          description: "Automatically sends a personalized follow-up within minutes of a new lead entering the system via webhook, form, or CSV import.",
+          trigger_event: "lead_submitted",
+          trigger_stage: "new",
+          max_attempts: 3,
+          stop_on_reply: true,
+          stop_on_manual: true,
+          inactivity_window: null
         }
       },
       {
@@ -68,8 +74,14 @@ export async function bootstrapWorkspace(businessId: string) {
         config_json: {
           delay: "24h",
           channel: "email",
-          category: "Retention",
-          description: "Re-engages leads who received an initial follow-up but did not respond within the configured window."
+          category: "pipeline_recovery",
+          description: "Re-engages leads who received an initial follow-up but did not respond within the configured window.",
+          trigger_event: "no_response",
+          trigger_stage: "engaged",
+          max_attempts: 2,
+          stop_on_reply: true,
+          stop_on_manual: true,
+          inactivity_window: "48h"
         }
       },
       {
@@ -79,8 +91,14 @@ export async function bootstrapWorkspace(businessId: string) {
         config_json: {
           delay: "7d",
           channel: "whatsapp",
-          category: "Retention",
-          description: "Identifies and re-engages contacts that have been inactive beyond a threshold period with a targeted outreach sequence."
+          category: "remarketing",
+          description: "Identifies and re-engages contacts that have been inactive beyond a threshold period with a targeted outreach sequence.",
+          trigger_event: "lead_stale",
+          trigger_stage: "any",
+          max_attempts: 1,
+          stop_on_reply: true,
+          stop_on_manual: true,
+          inactivity_window: "14d"
         }
       }
     ]);

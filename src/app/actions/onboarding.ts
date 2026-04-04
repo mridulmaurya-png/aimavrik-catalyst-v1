@@ -6,7 +6,7 @@ import { bootstrapWorkspace } from "./workspace";
 
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 
-export async function createWorkspace(data: { name: string; type: string; timezone: string }) {
+export async function createWorkspace(data: { name: string; type: string; timezone: string; currency_code?: string }) {
   console.log("Starting workspace creation for:", data.name);
   const user = await requireUser();
 
@@ -25,6 +25,7 @@ export async function createWorkspace(data: { name: string; type: string; timezo
       business_name: data.name,
       business_type: data.type,
       timezone: data.timezone || 'UTC',
+      currency_code: data.currency_code || 'INR',
     })
     .select()
     .single();

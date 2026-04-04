@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 
 export default async function DashboardPage() {
-  const { businessId } = await requireWorkspace();
+  const { businessId, currencyCode } = await requireWorkspace();
   const supabase = await createClient();
 
   // Fetch Business Data
