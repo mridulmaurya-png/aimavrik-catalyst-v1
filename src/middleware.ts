@@ -40,13 +40,20 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // Dashboard protection
-  if (request.nextUrl.pathname.startsWith("/dashboard")) {
+  // App protection
+  const protectedRoutes = ["/dashboard", "/contacts", "/playbooks", "/integrations", "/settings", "/billing", "/analytics", "/event-logs"];
+  const isProtectedRoute = protectedRoutes.some(route => request.nextUrl.pathname.startsWith(route));
+
+  if (isProtectedRoute || request.nextUrl.pathname.startsWith("/onboarding")) {
     if (!user) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
 
-    // Check if user has a business workspace
+    if (request.nextUrl.pathname.startsWith("/onboarding")) {
+      return response;
+    }
+
+    // Check if user has a business workspace for protected dashboard routes
     const { data: membership } = await supabase
       .from("team_members")
       .select("business_id")
@@ -54,7 +61,7 @@ export async function middleware(request: NextRequest) {
       .limit(1)
       .maybeSingle();
 
-    if (!membership && !request.nextUrl.pathname.startsWith("/onboarding")) {
+    if (!membership) {
       return NextResponse.redirect(new URL("/onboarding", request.url));
     }
   }
