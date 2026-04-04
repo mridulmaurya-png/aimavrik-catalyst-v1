@@ -49,7 +49,7 @@ export function ContactTable({ contacts }: { contacts: any[] }) {
           {contacts.map((contact) => (
             <TableRow key={contact.id} className="group cursor-pointer border-brand-border/30">
               <TableCell>
-                <Link href={`/dashboard/contacts/${contact.id}`} className="flex flex-col">
+                <Link href={`/contacts/${contact.id}`} className="flex flex-col">
                   <span className="font-bold text-brand-text-primary group-hover:text-brand-primary transition-colors truncate max-w-[150px]">
                     {contact.full_name}
                   </span>

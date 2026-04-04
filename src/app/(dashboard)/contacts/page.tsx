@@ -34,7 +34,7 @@ export default async function ContactsPage() {
             Track every lead and customer moving through your revenue system.
           </p>
         </div>
-        <Button className="gap-2 h-11 px-6">
+        <Button disabled title="Manual contact addition available in production" className="gap-2 h-11 px-6 opacity-50 cursor-not-allowed">
           <Plus className="w-5 h-5" />
           Add contact
         </Button>
@@ -43,21 +43,25 @@ export default async function ContactsPage() {
       <div className="space-y-4">
         <div className="flex flex-col lg:flex-row gap-4">
           <div className="relative flex-1 group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-text-tertiary group-focus-within:text-brand-primary transition-colors" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-text-tertiary group-focus-within:text-brand-primary opacity-50 transition-colors" />
             <Input 
-              className="pl-10 h-11 bg-brand-bg-secondary" 
-              placeholder="Search by name, email, or metadata..." 
+              disabled
+              title="Global search available in production release"
+              className="pl-10 h-11 bg-brand-bg-secondary opacity-50 cursor-not-allowed" 
+              placeholder="Global search available in production" 
             />
           </div>
           <div className="flex gap-2">
-            <Button variant="ghost" className="h-11 gap-2 bg-brand-bg-secondary border border-brand-border px-4">
+            <Button variant="ghost" disabled className="h-11 gap-2 bg-brand-bg-secondary border border-brand-border px-4 opacity-50 cursor-not-allowed" title="Filters available in production">
               <Filter className="w-4 h-4" />
               More Filters
             </Button>
           </div>
         </div>
         
-        <FilterChips />
+        <div className="opacity-40 grayscale-[50%] pointer-events-none">
+          <FilterChips />
+        </div>
       </div>
 
       <ContactTable contacts={contacts || []} />

@@ -21,11 +21,11 @@ export default function AnalyticsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" className="h-11 gap-2 bg-brand-bg-secondary border border-brand-border px-4">
+          <Button variant="ghost" disabled className="h-11 gap-2 bg-brand-bg-secondary border border-brand-border px-4 opacity-50 cursor-not-allowed" title="Available historically in production">
             <Filter className="w-4 h-4" />
             Segment Results
           </Button>
-          <Button variant="ghost" className="h-11 gap-2 bg-brand-bg-secondary border border-brand-border px-4">
+          <Button variant="ghost" disabled className="h-11 gap-2 bg-brand-bg-secondary border border-brand-border px-4 opacity-50 cursor-not-allowed" title="Available historically in production">
             <Calendar className="w-4 h-4" />
             Last 30 Days
           </Button>

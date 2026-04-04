@@ -19,7 +19,7 @@ export function AnalyticsKpiCard({
   subtitle 
 }: AnalyticsKpiProps) {
   return (
-    <Card variant="elevated" className="p-6 space-y-3 group hover:border-brand-primary/30 transition-all">
+    <Card variant="elevated" className="p-6 space-y-3">
       <p className="text-[11px] text-brand-text-tertiary font-bold uppercase tracking-widest pl-0.5">
         {label}
       </p>

@@ -34,7 +34,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
   if (error || !contact) {
     return (
       <div className="space-y-8 pb-12">
-        <Link href="/dashboard/contacts" className="flex items-center gap-1.5 text-brand-text-tertiary hover:text-brand-primary transition-colors text-label-sm font-semibold uppercase tracking-wider">
+        <Link href="/contacts" className="flex items-center gap-1.5 text-brand-text-tertiary hover:text-brand-primary transition-colors text-label-sm font-semibold uppercase tracking-wider">
           <ChevronLeft className="w-3.5 h-3.5" />
           Back to Contacts
         </Link>
@@ -64,7 +64,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
     <div className="space-y-8 pb-12">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-col gap-2">
-          <Link href="/dashboard/contacts" className="flex items-center gap-1.5 text-brand-text-tertiary hover:text-brand-primary transition-colors text-label-sm font-semibold uppercase tracking-wider">
+          <Link href="/contacts" className="flex items-center gap-1.5 text-brand-text-tertiary hover:text-brand-primary transition-colors text-label-sm font-semibold uppercase tracking-wider">
             <ChevronLeft className="w-3.5 h-3.5" />
             Back to Contacts
           </Link>
@@ -100,14 +100,14 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
         {/* RIGHT COLUMN: Insights and Actions */}
         <div className="lg:col-span-1 space-y-8">
-          <AIContactBrief 
+          <AIContactBrief
             summary={contact.notes || `${contact.full_name} is a ${contact.contact_type} currently in the ${mappedContact.stage} stage.`}
             intent={contact.stage === 'engaged' ? "High implicit intent based on activity" : "Unknown"}
             nextAction={contact.stage === 'new' ? "Awaiting initial playbook engagement routing." : "Monitoring for conversion."}
           />
-          
+
           <AssignedPlaybooks playbooks={PLAYBOOKS as any} />
-          
+
           <QuickActions />
         </div>
       </div>

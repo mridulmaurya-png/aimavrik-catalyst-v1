@@ -5,6 +5,7 @@ import { InsightCard } from "@/components/dashboard/insight-card";
 import { ExecutionHealth } from "@/components/dashboard/health-metrics";
 import { requireWorkspace } from "@/lib/auth/context";
 import { createClient } from "@/lib/supabase/server";
+import Link from "next/link";
 
 const FEED_DATA = [
   { id: "1", type: "Cart recovered", contact: "Alex Rivera", summary: "Completed purchase after 2nd reminder", time: "2m ago", status: "completed" },
@@ -13,9 +14,9 @@ const FEED_DATA = [
 ];
 
 const INSIGHTS_DATA = [
-  { text: "14 contacts are waiting after first follow-up.", action: "Delayed response detected in Service reactivation.", cta: "Review playbook" },
-  { text: "Proposal follow-up is driving highest conversions recently.", action: "Conversion rate increased by 4.2% this week.", cta: "View insights" },
-  { text: "WhatsApp response rate is higher than email this week.", action: "82% channel preference for mobile users.", cta: "Adjust timing" },
+  { text: "14 contacts are waiting after first follow-up.", action: "Delayed response detected in Service reactivation.", cta: "Review playbook", href: "/playbooks" },
+  { text: "Proposal follow-up is driving highest conversions recently.", action: "Conversion rate increased by 4.2% this week.", cta: "View insights", href: "/analytics" },
+  { text: "WhatsApp response rate is higher than email this week.", action: "82% channel preference for mobile users.", cta: "Adjust timing", href: "/settings" },
 ];
 
 const HEALTH_DATA = [
@@ -76,7 +77,7 @@ export default async function DashboardPage() {
     .from("integrations")
     .select("provider")
     .eq("business_id", businessId);
-  
+
   const connectedSources = integrations?.map(i => i.provider).join(', ') || 'System';
 
   // 7. Fetch recent messages for feed
@@ -99,7 +100,7 @@ export default async function DashboardPage() {
   const HEALTH_MAP = [
     { label: "Catalyst Engine Status", value: "Online", status: "healthy" },
     { label: "Routing Channels", value: "Connected", status: "healthy" },
-    { label: "delivery success rate", value: messagesCount && failedCount ? `${Math.round(100 - (failedCount/messagesCount*100))}%` : "100%", status: "healthy" },
+    { label: "delivery success rate", value: messagesCount && failedCount ? `${Math.round(100 - (failedCount / messagesCount * 100))}%` : "100%", status: "healthy" },
     { label: "failed tasks", value: (failedCount || 0).toString(), status: failedCount && failedCount > 0 ? "warning" : "healthy" },
   ];
 
@@ -122,7 +123,7 @@ export default async function DashboardPage() {
       {/* SECTION 1: KPI ROW */}
       <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {KPI_DATA.map((kpi) => (
-          <KPICard 
+          <KPICard
             key={kpi.label}
             label={kpi.label}
             value={kpi.value}
@@ -142,7 +143,7 @@ export default async function DashboardPage() {
           </div>
           <div className="grid md:grid-cols-2 gap-4">
             {playbooks && playbooks.length > 0 ? playbooks.map((playbook) => (
-              <PlaybookCard 
+              <PlaybookCard
                 key={playbook.id}
                 name={playbook.playbook_type}
                 status={playbook.is_active ? "active" : "paused"}
@@ -151,12 +152,14 @@ export default async function DashboardPage() {
                 revenue="$0"
               />
             )) : (
-              <div className="col-span-2 p-12 border border-dashed border-brand-border rounded-xl flex items-center justify-center text-center">
-                <p className="text-brand-text-tertiary text-body-sm">
-                  System awaiting active playbooks. <br/>
-                  Go to Execution Rules to activate your first system.
-                </p>
-              </div>
+              <Link href="/playbooks" className="col-span-2">
+                <div className="p-12 border border-dashed border-brand-border rounded-xl flex items-center justify-center text-center transition-colors hover:border-brand-primary/50 group">
+                  <p className="text-brand-text-tertiary text-body-sm group-hover:text-brand-text-secondary transition-colors">
+                    System awaiting active playbooks. <br />
+                    <span className="text-brand-primary font-bold">Go to Execution Rules</span> to activate your first system.
+                  </p>
+                </div>
+              </Link>
             )}
           </div>
         </section>
@@ -173,11 +176,12 @@ export default async function DashboardPage() {
           <h3 className="text-heading-3 font-bold">System insights</h3>
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
             {INSIGHTS_DATA.map((insight) => (
-              <InsightCard 
+              <InsightCard
                 key={insight.text}
                 text={insight.text}
                 action={insight.action}
                 cta={insight.cta}
+                href={(insight as any).href}
               />
             ))}
           </div>

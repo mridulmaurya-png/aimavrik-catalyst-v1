@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { MoreHorizontal, Play, Pause, Edit3 } from "lucide-react"
+import Link from "next/link"
 
 interface PlaybookCardProps {
   name: string
@@ -49,14 +50,18 @@ export function PlaybookCard({
       </div>
 
       <div className="flex gap-2 pt-2">
-        <Button variant="secondary" className="flex-1 h-9 text-body-sm gap-2">
-          <Edit3 className="w-3.5 h-3.5" />
-          Edit
-        </Button>
-        <Button variant="ghost" className="flex-1 h-9 text-body-sm gap-2 bg-white/[0.03]">
-          {status === 'active' ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-          {status === 'active' ? 'Pause' : 'Activate'}
-        </Button>
+        <Link href="/playbooks" className="flex-1">
+          <Button variant="secondary" className="w-full h-9 text-body-sm gap-2">
+            <Edit3 className="w-3.5 h-3.5" />
+            Edit
+          </Button>
+        </Link>
+        <Link href="/playbooks" className="flex-1">
+          <Button variant="ghost" className="w-full h-9 text-body-sm gap-2 bg-white/[0.03]">
+            {status === 'active' ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            {status === 'active' ? 'Pause' : 'Activate'}
+          </Button>
+        </Link>
       </div>
     </Card>
   )

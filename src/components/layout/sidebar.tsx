@@ -17,16 +17,16 @@ import {
 
 const mainNav = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Contacts", href: "/dashboard/contacts", icon: Users },
-  { name: "Playbooks", href: "/dashboard/playbooks", icon: PlayCircle },
-  { name: "Integrations", href: "/dashboard/integrations", icon: Share2 },
-  { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
+  { name: "Contacts", href: "/contacts", icon: Users },
+  { name: "Playbooks", href: "/playbooks", icon: PlayCircle },
+  { name: "Integrations", href: "/integrations", icon: Share2 },
+  { name: "Analytics", href: "/analytics", icon: BarChart3 },
 ];
 
 const secondaryNav = [
-  { name: "Event Logs", href: "/dashboard/event-logs", icon: History },
-  { name: "Billing", href: "/dashboard/billing", icon: CreditCard },
-  { name: "Settings", href: "/dashboard/settings", icon: Settings },
+  { name: "Event Logs", href: "/event-logs", icon: History },
+  { name: "Billing", href: "/billing", icon: CreditCard },
+  { name: "Settings", href: "/settings", icon: Settings },
 ];
 
 export function Sidebar() {

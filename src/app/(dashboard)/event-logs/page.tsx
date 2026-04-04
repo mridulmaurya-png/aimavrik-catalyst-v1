@@ -33,11 +33,11 @@ export default function EventLogsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="secondary" className="gap-2 h-11 px-4 bg-white/[0.02] border border-brand-border/50">
+          <Button variant="secondary" disabled className="gap-2 h-11 px-4 bg-white/[0.02] border border-brand-border/50 opacity-50 cursor-not-allowed" title="Export available in production tier">
             <Download className="w-4 h-4 text-brand-text-tertiary" />
             Export Logs
           </Button>
-          <Button className="gap-2 h-11 px-6">
+          <Button disabled className="gap-2 h-11 px-6 opacity-50 cursor-not-allowed" title="Test suite available in production tier">
             <Zap className="w-4 h-4" />
             Run Test Event
           </Button>
@@ -47,18 +47,20 @@ export default function EventLogsPage() {
       <div className="space-y-4">
         <div className="flex flex-col lg:flex-row gap-4">
           <div className="relative flex-1 group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-text-tertiary group-focus-within:text-brand-primary transition-colors" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-text-tertiary group-focus-within:text-brand-primary opacity-50 transition-colors" />
             <Input 
-              className="pl-10 h-11 bg-brand-bg-secondary" 
-              placeholder="Search by Event ID, Contact, or Content..." 
+              disabled
+              title="Global search available in production release"
+              className="pl-10 h-11 bg-brand-bg-secondary opacity-50 cursor-not-allowed" 
+              placeholder="Global search available in production" 
             />
           </div>
           <div className="flex gap-2">
-            <Button variant="ghost" className="h-11 gap-2 bg-brand-bg-secondary border border-brand-border px-4">
+            <Button variant="ghost" disabled className="h-11 gap-2 bg-brand-bg-secondary border border-brand-border px-4 opacity-50 cursor-not-allowed" title="Filters available in production">
               <Filter className="w-4 h-4" />
               Filters
             </Button>
-            <Button variant="ghost" className="h-11 gap-2 bg-brand-bg-secondary border border-brand-border px-4">
+            <Button variant="ghost" disabled className="h-11 gap-2 bg-brand-bg-secondary border border-brand-border px-4 opacity-50 cursor-not-allowed" title="Limits available in production">
               <Calendar className="w-4 h-4" />
               Date Range
             </Button>

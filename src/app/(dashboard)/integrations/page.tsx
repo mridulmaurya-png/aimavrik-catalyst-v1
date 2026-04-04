@@ -93,7 +93,7 @@ export default async function IntegrationsPage() {
             Connect your funnel, CRM, website, payments, and communication channels.
           </p>
         </div>
-        <Button className="gap-2 h-11 px-6">
+        <Button disabled className="gap-2 h-11 px-6 opacity-50 cursor-not-allowed" title="Direct integration adding enabled in production release">
           <Plus className="w-5 h-5" />
           Add integration
         </Button>

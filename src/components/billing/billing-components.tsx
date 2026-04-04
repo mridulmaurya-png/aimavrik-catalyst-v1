@@ -66,7 +66,11 @@ export function InvoiceTable() {
                 </Badge>
               </TableCell>
               <TableCell className="text-right">
-                <button className="text-brand-text-tertiary hover:text-brand-primary transition-colors p-1">
+                <button 
+                  disabled 
+                  title="Historical invoices available in production"
+                  className="text-brand-text-tertiary opacity-40 cursor-not-allowed p-1"
+                >
                   <Download className="w-4 h-4" />
                 </button>
               </TableCell>

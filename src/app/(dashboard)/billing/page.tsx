@@ -51,10 +51,10 @@ export default async function BillingPage() {
             </div>
             
             <div className="flex gap-3 pt-2">
-              <Button className="h-10 px-6 gap-2">
+              <Button disabled className="h-10 px-6 gap-2 opacity-50 cursor-not-allowed" title="Billing controls enabled in production workspace">
                 Upgrade Plan
               </Button>
-              <Button variant="ghost" className="h-10 px-6 gap-2 bg-white/[0.03] border border-brand-border/50">
+              <Button variant="ghost" disabled className="h-10 px-6 gap-2 bg-white/[0.03] border border-brand-border/50 opacity-50 cursor-not-allowed" title="Billing controls enabled in production workspace">
                 Cancel Subscription
               </Button>
             </div>
@@ -93,7 +93,7 @@ export default async function BillingPage() {
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
-            <Button variant="ghost" className="w-full text-brand-primary h-9 gap-2">
+            <Button variant="ghost" disabled className="w-full text-brand-primary h-9 gap-2 opacity-50 cursor-not-allowed" title="Billing controls enabled in production workspace">
               Update payment method
               <ArrowRight className="w-3.5 h-3.5" />
             </Button>

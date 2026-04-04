@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { MessageSquare, Mail } from "lucide-react"
+import Link from "next/link"
 
 export function PlaybookPerformanceTable() {
   const data = [
@@ -34,7 +35,9 @@ export function PlaybookPerformanceTable() {
           {data.map((row) => (
             <TableRow key={row.name} className="group">
               <TableCell className="font-bold text-brand-text-primary group-hover:text-brand-primary transition-colors">
-                {row.name}
+                <Link href="/playbooks">
+                  {row.name}
+                </Link>
               </TableCell>
               <TableCell className="text-body-sm text-brand-text-secondary">{row.entered.toLocaleString()}</TableCell>
               <TableCell className="text-body-sm text-brand-text-secondary">{row.replies}</TableCell>

@@ -36,17 +36,18 @@ export function ConnectorCategoryBlock({ title, connectors }: ConnectorCategoryP
           return (
             <Card 
               key={connector.id} 
-              className="p-4 flex items-center justify-between group cursor-pointer hover:border-brand-primary/40 transition-all bg-brand-bg-secondary/30"
+              className="p-4 flex items-center justify-between transition-all bg-brand-bg-secondary/30 opacity-60 cursor-not-allowed"
+              title="Connector available in production release"
             >
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded-lg bg-brand-bg-primary border border-brand-border flex items-center justify-center">
-                  <Icon className="w-5 h-5 text-brand-text-tertiary group-hover:text-brand-primary transition-colors" />
+                  <Icon className="w-5 h-5 text-brand-text-tertiary" />
                 </div>
-                <span className="text-body-sm font-bold text-brand-text-secondary group-hover:text-brand-text-primary transition-colors">
+                <span className="text-body-sm font-bold text-brand-text-secondary">
                   {connector.name}
                 </span>
               </div>
-              <ArrowRight className="w-4 h-4 text-brand-text-tertiary opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
+              <ArrowRight className="w-4 h-4 text-brand-text-tertiary opacity-20" />
             </Card>
           );
         })}

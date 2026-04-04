@@ -53,7 +53,7 @@ export default function PlaybookDetailClient({ playbook }: { playbook: any }) {
     <div className="space-y-8 pb-12">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-col gap-2">
-          <Link href="/dashboard/playbooks" className="flex items-center gap-1.5 text-brand-text-tertiary hover:text-brand-primary transition-colors text-label-sm font-semibold uppercase tracking-wider">
+          <Link href="/playbooks" className="flex items-center gap-1.5 text-brand-text-tertiary hover:text-brand-primary transition-colors text-label-sm font-semibold uppercase tracking-wider">
             <ChevronLeft className="w-3.5 h-3.5" />
             Back to Playbooks
           </Link>

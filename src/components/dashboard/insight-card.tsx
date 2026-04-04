@@ -2,14 +2,16 @@ import * as React from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Lightbulb, ArrowRight } from "lucide-react"
+import Link from "next/link"
 
 interface InsightCardProps {
   text: string
   action: string
   cta: string
+  href?: string
 }
 
-export function InsightCard({ text, action, cta }: InsightCardProps) {
+export function InsightCard({ text, action, cta, href = "/analytics" }: InsightCardProps) {
   return (
     <Card variant="elevated" className="p-6 transition-all hover:border-brand-primary/50 group bg-gradient-to-br from-brand-bg-elevated/80 to-brand-bg-primary/40">
       <div className="flex gap-4">
@@ -25,10 +27,12 @@ export function InsightCard({ text, action, cta }: InsightCardProps) {
               {action}
             </p>
           </div>
-          <Button variant="ghost" className="h-8 px-0 text-brand-primary hover:bg-transparent hover:text-brand-primary/80 group mt-2">
-            <span className="text-body-sm font-semibold">{cta}</span>
-            <ArrowRight className="w-3.5 h-3.5 ml-2 transition-transform group-hover:translate-x-1" />
-          </Button>
+          <Link href={href} className="inline-block mt-2">
+            <Button variant="ghost" className="h-8 px-0 text-brand-primary hover:bg-transparent hover:text-brand-highlight group">
+              <span className="text-body-sm font-semibold">{cta}</span>
+              <ArrowRight className="w-3.5 h-3.5 ml-2 transition-transform group-hover:translate-x-1" />
+            </Button>
+          </Link>
         </div>
       </div>
     </Card>

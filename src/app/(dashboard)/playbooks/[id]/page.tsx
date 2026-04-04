@@ -20,7 +20,7 @@ export default async function PlaybookDetailPage({ params }: { params: { id: str
   if (error || !playbook) {
     return (
       <div className="space-y-8 pb-12">
-        <Link href="/dashboard/playbooks" className="flex items-center gap-1.5 text-brand-text-tertiary hover:text-brand-primary transition-colors text-label-sm font-semibold uppercase tracking-wider">
+        <Link href="/playbooks" className="flex items-center gap-1.5 text-brand-text-tertiary hover:text-brand-primary transition-colors text-label-sm font-semibold uppercase tracking-wider">
           <ChevronLeft className="w-3.5 h-3.5" />
           Back to Playbooks
         </Link>

@@ -22,7 +22,7 @@ function LoginContent() {
     setLoading(true);
     setError("");
     const supabase = createClient();
-    
+
     try {
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
@@ -46,7 +46,7 @@ function LoginContent() {
           .maybeSingle();
 
         if (memberError && memberError.code !== 'PGRST116') {
-            console.error("Error fetching workspace:", memberError);
+          console.error("Error fetching workspace:", memberError);
         }
 
         if (membership && membership.business_id) {
@@ -74,7 +74,7 @@ function LoginContent() {
 
       <div className="card-elevated p-8 space-y-6 relative overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-brand-primary/50 blur-sm" />
-        
+
         <form className="space-y-4" onSubmit={handleLogin}>
           {error && (
             <div className="p-3 rounded-lg bg-functional-error/10 border border-functional-error/20 text-functional-error text-body-sm">
@@ -83,9 +83,9 @@ function LoginContent() {
           )}
           <div className="space-y-2">
             <label className="text-label-sm font-bold text-brand-text-secondary">Email address</label>
-            <Input 
-              type="email" 
-              placeholder="you@company.com" 
+            <Input
+              type="email"
+              placeholder="you@company.com"
               className="h-12 bg-brand-bg-primary"
               value={email}
               onChange={e => setEmail(e.target.value)}
@@ -97,9 +97,9 @@ function LoginContent() {
               <label className="text-label-sm font-bold text-brand-text-secondary">Password</label>
               <Link href="/reset-password" className="text-[11px] text-brand-primary hover:text-brand-highlight transition-colors font-medium">Forgot password?</Link>
             </div>
-            <Input 
-              type="password" 
-              placeholder="••••••••" 
+            <Input
+              type="password"
+              placeholder="••••••••"
               className="h-12 bg-brand-bg-primary"
               value={password}
               onChange={e => setPassword(e.target.value)}
