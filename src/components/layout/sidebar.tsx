@@ -1,0 +1,102 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { 
+  LayoutDashboard, 
+  Users, 
+  PlayCircle, 
+  Share2, 
+  BarChart3, 
+  History, 
+  CreditCard, 
+  Settings,
+  Hexagon
+} from "lucide-react";
+
+const mainNav = [
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Contacts", href: "/dashboard/contacts", icon: Users },
+  { name: "Playbooks", href: "/dashboard/playbooks", icon: PlayCircle },
+  { name: "Integrations", href: "/dashboard/integrations", icon: Share2 },
+  { name: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
+];
+
+const secondaryNav = [
+  { name: "Event Logs", href: "/dashboard/event-logs", icon: History },
+  { name: "Billing", href: "/dashboard/billing", icon: CreditCard },
+  { name: "Settings", href: "/dashboard/settings", icon: Settings },
+];
+
+export function Sidebar() {
+  const pathname = usePathname();
+
+  return (
+    <aside className="w-64 border-r border-brand-border bg-brand-bg-secondary flex flex-col h-full">
+      <div className="p-6 flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-brand-primary flex items-center justify-center">
+          <Hexagon className="w-5 h-5 text-white" />
+        </div>
+        <span className="font-heading font-bold text-lg tracking-tight">Catalyst</span>
+      </div>
+
+      <nav className="flex-1 px-4 py-4 space-y-8 overflow-y-auto">
+        <div className="space-y-1">
+          {mainNav.map((item) => {
+            const isActive = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-md transition-all duration-200 group text-body-sm font-medium",
+                  isActive 
+                    ? "bg-brand-primary/10 text-brand-primary glow-active" 
+                    : "text-brand-text-secondary hover:text-brand-text-primary hover:bg-white/[0.03]"
+                )}
+              >
+                <item.icon className={cn("w-4 h-4 transition-colors", isActive ? "text-brand-primary" : "text-brand-text-tertiary group-hover:text-brand-text-secondary")} />
+                {item.name}
+              </Link>
+            );
+          })}
+        </div>
+
+        <div className="space-y-4">
+          <h4 className="px-3 text-[10px] font-bold uppercase tracking-[0.1em] text-brand-text-tertiary">System</h4>
+          <div className="space-y-1">
+            {secondaryNav.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-md transition-all duration-200 group text-body-sm font-medium",
+                    isActive 
+                      ? "bg-brand-primary/10 text-brand-primary glow-active" 
+                      : "text-brand-text-secondary hover:text-brand-text-primary hover:bg-white/[0.03]"
+                  )}
+                >
+                  <item.icon className={cn("w-4 h-4 transition-colors", isActive ? "text-brand-primary" : "text-brand-text-tertiary group-hover:text-brand-text-secondary")} />
+                  {item.name}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </nav>
+
+      <div className="p-4 border-t border-brand-border">
+        <div className="flex items-center gap-3 px-3 py-2">
+          <div className="w-8 h-8 rounded-full bg-brand-bg-elevated border border-brand-border" />
+          <div className="flex-1 min-w-0">
+            <p className="text-body-sm font-medium truncate">Founder</p>
+            <p className="text-[10px] text-brand-text-tertiary truncate">owner</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+  );
+}
