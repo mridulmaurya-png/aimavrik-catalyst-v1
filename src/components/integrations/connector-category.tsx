@@ -24,7 +24,7 @@ interface ConnectorCategoryProps {
   connectors: Connector[]
 }
 
-export function ConnectorCategoryBlock({ title, connectors }: ConnectorCategoryBlockProps) {
+export function ConnectorCategoryBlock({ title, connectors }: ConnectorCategoryProps) {
   return (
     <div className="space-y-4">
       <h5 className="text-[11px] font-bold text-brand-text-tertiary uppercase tracking-widest pl-1">

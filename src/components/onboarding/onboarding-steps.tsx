@@ -21,7 +21,7 @@ import {
 import { cn } from "@/lib/utils"
 
 /* --- Step 1: Workspace --- */
-export function StepWorkspace({ onNext }: { onNext: (data: any) => void }) {
+export function StepWorkspace({ onNext }: { onNext: (data: any) => void; isLoading?: boolean }) {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="text-center space-y-2">
@@ -206,7 +206,7 @@ export function StepChannel({ onNext }: { onNext: (chan: string) => void }) {
 }
 
 /* --- Step 4: Playbook --- */
-export function StepPlaybook({ onNext }: { onNext: (play: string) => void }) {
+export function StepPlaybook({ onNext }: { onNext: (play: string) => void; isLoading?: boolean }) {
   const playbooks = [
     { id: 'lead', name: 'New Lead Instant Follow-up', desc: 'Trigger WhatsApp instantly on form submission.', outcome: '30% higher conversion' },
     { id: 'cart', name: 'Abandoned Cart Recovery', desc: 'Revive lost checkouts with personalized offers.', outcome: '12% revenue recovery' },
@@ -243,7 +243,7 @@ export function StepPlaybook({ onNext }: { onNext: (play: string) => void }) {
 }
 
 /* --- Step 5: Success --- */
-export function StepSuccess({ state }: { state: any }) {
+export function StepSuccess({ state }: { state: any; onFinish?: () => void }) {
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-1000">
       <div className="flex flex-col items-center justify-center space-y-4">

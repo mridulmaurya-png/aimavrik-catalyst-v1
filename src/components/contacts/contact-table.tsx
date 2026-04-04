@@ -11,19 +11,6 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 
-import * as React from "react"
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
-import Link from "next/link"
-
 export function ContactTable({ contacts }: { contacts: any[] }) {
   if (!contacts || contacts.length === 0) {
     return (
@@ -66,7 +53,7 @@ export function ContactTable({ contacts }: { contacts: any[] }) {
               </TableCell>
               <TableCell className="text-body-sm text-brand-text-secondary capitalize">{contact.source || 'Manual'}</TableCell>
               <TableCell>
-                <span className="text-body-sm text-brand-text-primary font-medium capitalize">{contact.stage.replace('_', ' ')}</span>
+                <span className="text-body-sm text-brand-text-primary font-medium capitalize">{(contact.stage ?? '').replace('_', ' ')}</span>
               </TableCell>
               <TableCell className="text-body-sm text-brand-text-secondary italic">
                 {/* Placeholder mapping until playbook assignments table is strictly queried */}
@@ -84,7 +71,7 @@ export function ContactTable({ contacts }: { contacts: any[] }) {
                 </Badge>
               </TableCell>
               <TableCell className="text-right text-body-sm text-brand-text-tertiary">
-                {new Date(contact.last_active_at).toLocaleDateString()}
+                {contact.last_active_at ? new Date(contact.last_active_at).toLocaleDateString() : '—'}
               </TableCell>
             </TableRow>
           ))}

@@ -19,14 +19,15 @@ const PLAYBOOKS = [
   { name: "Abandoned Cart Recovery", step: "Step 2: 24h SMS Reminder", nextAction: "Wait 24h", status: "active" },
 ];
 
-export default async function ContactDetailPage({ params }: { params: { id: string } }) {
+export default async function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const { businessId } = await requireWorkspace();
   const supabase = await createClient();
 
   const { data: contact, error } = await supabase
     .from("contacts")
     .select("*")
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("business_id", businessId)
     .single();
 

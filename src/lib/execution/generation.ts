@@ -48,6 +48,7 @@ export async function generateMessagePayload(
   channel: string,
   context: GenerationContext
 ): Promise<GeneratedMessage> {
+  try {
     // Gemini API integration (Constraint 5)
     const apiKey = process.env.GEMINI_API_KEY;
     

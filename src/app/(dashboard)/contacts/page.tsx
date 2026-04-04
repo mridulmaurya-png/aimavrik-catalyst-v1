@@ -2,12 +2,6 @@ import { FilterChips } from "@/components/contacts/filter-chips";
 import { ContactTable } from "@/components/contacts/contact-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, Filter } from "lucide-react";
-
-import { FilterChips } from "@/components/contacts/filter-chips";
-import { ContactTable } from "@/components/contacts/contact-table";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Search, Plus, Filter, ShieldAlert } from "lucide-react";
 import { requireWorkspace } from "@/lib/auth/context";
 import { createClient } from "@/lib/supabase/server";

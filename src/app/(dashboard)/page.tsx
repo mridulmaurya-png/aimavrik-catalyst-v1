@@ -144,7 +144,7 @@ export default async function DashboardPage() {
 
         {/* SECTION 3: LIVE EXECUTION FEED */}
         <section className="lg:col-span-1 h-[600px]">
-          <ExecutionFeed items={LIVE_FEED as any} title="Real-time execution"/>
+          <ExecutionFeed items={LIVE_FEED as any} />
         </section>
       </div>
 

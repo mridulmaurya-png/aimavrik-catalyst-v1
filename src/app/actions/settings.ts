@@ -25,8 +25,9 @@ export async function updateBusinessSetting(field: string, newValue: any) {
       .single();
     
     // Merge existing keys with new keys safely
+    const row = current as Record<string, any> | null;
     payload = {
-      ...(current?.[field] || {}),
+      ...(row?.[field] || {}),
       ...newValue
     };
   }
