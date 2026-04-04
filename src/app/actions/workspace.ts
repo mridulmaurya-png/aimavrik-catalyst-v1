@@ -52,21 +52,36 @@ export async function bootstrapWorkspace(businessId: string) {
     await supabase.from("playbooks").insert([
       {
         business_id: businessId,
-        playbook_type: "Lead Follow-up",
+        playbook_type: "Instant Lead Follow-Up",
         is_active: false,
-        config_json: { delay: "5m", channel: "whatsapp" }
+        config_json: {
+          delay: "5m",
+          channel: "whatsapp",
+          category: "Acquisition",
+          description: "Automatically sends a personalized follow-up within minutes of a new lead entering the system via webhook, form, or CSV import."
+        }
       },
       {
         business_id: businessId,
-        playbook_type: "Abandoned Cart Recovery",
+        playbook_type: "No Response Recovery",
         is_active: false,
-        config_json: { delay: "1h", channel: "email", discount: "10%" }
+        config_json: {
+          delay: "24h",
+          channel: "email",
+          category: "Retention",
+          description: "Re-engages leads who received an initial follow-up but did not respond within the configured window."
+        }
       },
       {
         business_id: businessId,
-        playbook_type: "Proposal Follow-up",
+        playbook_type: "Stale Lead Reactivation",
         is_active: false,
-        config_json: { delay: "48h", channel: "whatsapp" }
+        config_json: {
+          delay: "7d",
+          channel: "whatsapp",
+          category: "Retention",
+          description: "Identifies and re-engages contacts that have been inactive beyond a threshold period with a targeted outreach sequence."
+        }
       }
     ]);
   }

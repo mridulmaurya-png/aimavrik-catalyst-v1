@@ -82,10 +82,10 @@ export function IntegrationCard({
       </div>
 
       <div className="flex gap-2 pt-2">
-        <Button variant="secondary" className="flex-1 h-9 bg-white/[0.02] border border-brand-border/40 text-[12px] font-bold">
+        <Button variant="secondary" disabled title="Test event available in production" className="flex-1 h-9 bg-white/[0.02] border border-brand-border/40 text-[12px] font-bold opacity-50 cursor-not-allowed">
           Test
         </Button>
-        <Button variant="ghost" className="flex-1 h-9 bg-white/[0.02] border border-brand-border/40 text-[12px] font-bold text-functional-error hover:bg-functional-error/5">
+        <Button variant="ghost" disabled title="Disconnect available in production" className="flex-1 h-9 bg-white/[0.02] border border-brand-border/40 text-[12px] font-bold text-brand-text-tertiary opacity-50 cursor-not-allowed">
           Disconnect
         </Button>
       </div>

@@ -1,4 +1,5 @@
 import { WebhookSetupPanel } from "@/components/integrations/webhook-setup";
+import { CSVUploadPanel } from "@/components/integrations/csv-upload-panel";
 import { IntegrationCard } from "@/components/integrations/integration-card";
 import { ConnectorCategoryBlock } from "@/components/integrations/connector-category";
 import { Button } from "@/components/ui/button";
@@ -46,7 +47,20 @@ import { getSystemState } from "@/lib/system/state-model";
 
 export default async function IntegrationsPage() {
   const { businessId } = await requireWorkspace();
+  const supabase = await createClient();
   const systemState = await getSystemState();
+
+  // Fetch real event counts per source
+  const { data: eventCounts } = await supabase
+    .from("events")
+    .select("source")
+    .eq("business_id", businessId);
+
+  const countBySource: Record<string, number> = {};
+  (eventCounts || []).forEach(e => {
+    const src = e.source?.toLowerCase() || 'unknown';
+    countBySource[src] = (countBySource[src] || 0) + 1;
+  });
 
   const CONNECTED = systemState.channels.map(chan => {
     // Standardize lowercase for robust matching
@@ -71,11 +85,15 @@ export default async function IntegrationsPage() {
       statusLabel = 'paused';
     }
 
+    // Get real event count for this source
+    const sourceKey = normalizedChan || 'system';
+    const realEventCount = countBySource[sourceKey] || countBySource[normalizedChan] || 0;
+
     return {
       provider,
       status: statusLabel,
       lastSync,
-      eventCount: '0'
+      eventCount: realEventCount.toString()
     }
   });
 
@@ -122,6 +140,8 @@ export default async function IntegrationsPage() {
       </div>
 
       <WebhookSetupPanel />
+
+      <CSVUploadPanel />
 
       <div className="space-y-12 pt-8 border-t border-brand-border/50">
         <div className="space-y-2">

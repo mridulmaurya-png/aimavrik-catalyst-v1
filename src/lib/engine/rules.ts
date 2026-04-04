@@ -27,21 +27,41 @@ export async function evaluateAndCreateActions(
     // E.g. "Abandoned Cart Recovery" triggers on "checkout_abandoned".
     let isMatch = false;
 
-    // Mapping intent logic (hardcoded mapping for predictability in V1)
+    // Mapping intent logic for V1 playbooks
     const pType = playbook.playbook_type;
     const eType = normalized.event_type;
 
+    // "Instant Lead Follow-Up" — triggers on any new lead/form/contact event
+    if (pType === "Instant Lead Follow-Up" && (
+      eType === "lead_submitted" || eType === "form_submitted" || 
+      eType === "contact_created" || eType === "csv_import" ||
+      eType === "checkout_completed" || eType === "lead_captured"
+    )) isMatch = true;
+
+    // "No Response Recovery" — triggers when a contact hasn't responded
+    if (pType === "No Response Recovery" && (
+      eType === "no_response" || eType === "followup_needed" ||
+      eType === "proposal_unopened"
+    )) isMatch = true;
+
+    // "Stale Lead Reactivation" — triggers on stale/inactive signals
+    if (pType === "Stale Lead Reactivation" && (
+      eType === "lead_stale" || eType === "inactive_detected" ||
+      eType === "reactivation_triggered"
+    )) isMatch = true;
+
+    // Legacy support for existing data
     if (pType === "Abandoned Cart Recovery" && eType === "checkout_abandoned") isMatch = true;
+    if (pType === "Lead Follow-up" && (eType === "lead_submitted" || eType === "form_submitted")) isMatch = true;
     if (pType === "New Lead Instant Follow-up" && (eType === "lead_submitted" || eType === "form_submitted")) isMatch = true;
-    if (pType === "Post-Purchase Upsell" && eType === "purchase_completed") isMatch = true;
     if (pType === "Proposal Follow-up" && (eType === "proposal_sent" || eType === "proposal_unopened")) isMatch = true;
+    if (pType === "Post-Purchase Upsell" && eType === "purchase_completed") isMatch = true;
 
     if (!isMatch) continue;
 
-    // Check Constraint 3: Step-Awareness and Contact Stage
-    // E.g., Don't send cart recovery if they already purchased.
-    if (pType === "Abandoned Cart Recovery" && contact.stage === "converted") {
-       continue; // Ignored due to stage
+    // Stage-based filtering: Don't action already converted contacts for acquisition playbooks
+    if ((pType === "Instant Lead Follow-Up" || pType === "New Lead Instant Follow-up") && contact.stage === "converted") {
+       continue;
     }
 
     // Check Constraint 2: Action Deduplication (Idempotency of Actions)

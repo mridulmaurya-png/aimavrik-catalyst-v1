@@ -1,93 +1,33 @@
-"use client";
+import { requireWorkspace } from "@/lib/auth/context";
+import { createClient } from "@/lib/supabase/server";
+import EventLogsClient from "@/components/event-logs/event-logs-client";
 
-import * as React from "react"
-import { EventTable } from "@/components/event-logs/event-table";
-import { EventDetailDrawer } from "@/components/event-logs/event-drawer";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { 
-  Search, 
-  Filter, 
-  Calendar, 
-  RefreshCw,
-  Zap,
-  Download
-} from "lucide-react";
+export default async function EventLogsPage() {
+  const { businessId } = await requireWorkspace();
+  const supabase = await createClient();
 
-export default function EventLogsPage() {
-  const [isDrawerOpen, setIsDrawerOpen] = React.useState(false)
-  const [selectedEvent, setSelectedEvent] = React.useState<any>(null)
+  // Fetch real events from DB, joined with contacts for display
+  const { data: events, error } = await supabase
+    .from("events")
+    .select("id, event_type, source, status, created_at, payload_json, contact_id, contact:contacts(full_name, email)")
+    .eq("business_id", businessId)
+    .order("created_at", { ascending: false })
+    .limit(100);
 
-  const handleRowClick = (event: any) => {
-    setSelectedEvent(event)
-    setIsDrawerOpen(true)
-  }
+  // Safely flatten the joined contact data 
+  const flatEvents = (events || []).map(e => {
+    const contact = Array.isArray(e.contact) ? e.contact[0] : e.contact;
+    return {
+      id: e.id,
+      event_type: e.event_type || "unknown",
+      source: e.source || "system",
+      status: e.status || "processed",
+      created_at: e.created_at,
+      payload_json: e.payload_json || {},
+      contact_name: contact?.full_name || "",
+      contact_email: contact?.email || ""
+    };
+  });
 
-  return (
-    <div className="space-y-8 pb-12">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-heading-1 font-bold tracking-tight">Event Logs</h1>
-          <p className="text-brand-text-secondary text-body-sm">
-            Monitor every business event entering and moving through your system.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" disabled className="gap-2 h-11 px-4 bg-white/[0.02] border border-brand-border/50 opacity-50 cursor-not-allowed" title="Export available in production tier">
-            <Download className="w-4 h-4 text-brand-text-tertiary" />
-            Export Logs
-          </Button>
-          <Button disabled className="gap-2 h-11 px-6 opacity-50 cursor-not-allowed" title="Test suite available in production tier">
-            <Zap className="w-4 h-4" />
-            Run Test Event
-          </Button>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <div className="flex flex-col lg:flex-row gap-4">
-          <div className="relative flex-1 group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-text-tertiary group-focus-within:text-brand-primary opacity-50 transition-colors" />
-            <Input 
-              disabled
-              title="Global search available in production release"
-              className="pl-10 h-11 bg-brand-bg-secondary opacity-50 cursor-not-allowed" 
-              placeholder="Global search available in production" 
-            />
-          </div>
-          <div className="flex gap-2">
-            <Button variant="ghost" disabled className="h-11 gap-2 bg-brand-bg-secondary border border-brand-border px-4 opacity-50 cursor-not-allowed" title="Filters available in production">
-              <Filter className="w-4 h-4" />
-              Filters
-            </Button>
-            <Button variant="ghost" disabled className="h-11 gap-2 bg-brand-bg-secondary border border-brand-border px-4 opacity-50 cursor-not-allowed" title="Limits available in production">
-              <Calendar className="w-4 h-4" />
-              Date Range
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-functional-success animate-pulse" />
-            <span className="text-[11px] text-brand-text-tertiary font-bold uppercase tracking-wider">Live Feed Active</span>
-          </div>
-          <Button variant="ghost" className="h-8 gap-2 text-[11px] p-0 px-2 font-bold text-brand-text-tertiary hover:text-brand-primary transition-colors">
-            <RefreshCw className="w-3 h-3" />
-            Refresh
-          </Button>
-        </div>
-        
-        <EventTable onRowClick={handleRowClick} />
-      </div>
-
-      <EventDetailDrawer 
-        isOpen={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
-        event={selectedEvent}
-      />
-    </div>
-  );
+  return <EventLogsClient events={flatEvents} />;
 }

@@ -7,26 +7,6 @@ import { requireWorkspace } from "@/lib/auth/context";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 
-const FEED_DATA = [
-  { id: "1", type: "Cart recovered", contact: "Alex Rivera", summary: "Completed purchase after 2nd reminder", time: "2m ago", status: "completed" },
-  { id: "2", type: "Message sent", contact: "Sarah Chen", summary: "WhatsApp follow-up for New Lead", time: "12m ago", status: "sent" },
-  { id: "3", type: "Lead received", contact: "Mark Thompson", summary: "Incoming event from Website Form", time: "24m ago", status: "completed" },
-];
-
-const INSIGHTS_DATA = [
-  { text: "14 contacts are waiting after first follow-up.", action: "Delayed response detected in Service reactivation.", cta: "Review playbook", href: "/playbooks" },
-  { text: "Proposal follow-up is driving highest conversions recently.", action: "Conversion rate increased by 4.2% this week.", cta: "View insights", href: "/analytics" },
-  { text: "WhatsApp response rate is higher than email this week.", action: "82% channel preference for mobile users.", cta: "Adjust timing", href: "/settings" },
-];
-
-const HEALTH_DATA = [
-  { label: "event ingestion success", value: "99.9%", status: "healthy" },
-  { label: "message delivery success", value: "98.2%", status: "healthy" },
-  { label: "failed actions", value: "0", status: "healthy" },
-  { label: "disconnected integrations", value: "0", status: "healthy" },
-  { label: "queued tasks", value: "0", status: "healthy" },
-];
-
 export default async function DashboardPage() {
   const { businessId } = await requireWorkspace();
   const supabase = await createClient();
@@ -64,59 +44,61 @@ export default async function DashboardPage() {
     .eq("business_id", businessId)
     .eq("status", "failed");
 
-  // 5. Fetch Playbooks
-  const { data: playbooks } = await supabase
-    .from("playbooks")
-    .select("*")
-    .eq("business_id", businessId)
-    .eq("is_active", true)
-    .limit(4);
-
-  // 6. Fetch Integrations
-  const { data: integrations } = await supabase
-    .from("integrations")
-    .select("provider")
+  // 5. Fetch Events total
+  const { count: eventsCount } = await supabase
+    .from("events")
+    .select("*", { count: "exact", head: true })
     .eq("business_id", businessId);
 
-  const connectedSources = integrations?.map(i => i.provider).join(', ') || 'System';
+  // 6. Fetch Playbooks
+  const { data: allPlaybooks } = await supabase
+    .from("playbooks")
+    .select("*")
+    .eq("business_id", businessId);
 
-  // 7. Fetch recent messages for feed
-  const { data: recentMessages } = await supabase
-    .from("messages")
-    .select("*, contact:contacts(full_name)")
+  const activePlaybooks = allPlaybooks?.filter(p => p.is_active) || [];
+
+  // 7. Fetch recent events for feed (NOT hardcoded)
+  const { data: recentEvents } = await supabase
+    .from("events")
+    .select("id, event_type, source, status, created_at, contact:contacts(full_name)")
     .eq("business_id", businessId)
     .order("created_at", { ascending: false })
-    .limit(5);
+    .limit(8);
 
+  // Build KPI data from real DB counts
   const KPI_DATA = [
-    { label: "Contacts Processed", value: (contactsCount || 0).toLocaleString(), trend: "Live", trendType: "neutral", context: "Total in CRM" },
-    { label: "Messages Delivered", value: (messagesCount || 0).toLocaleString(), trend: "Live", trendType: "neutral", context: "Across active channels" },
-    { label: "Replies Evaluated", value: "0", trend: "-", trendType: "neutral", context: "Awaiting signals" },
-    { label: "Automated Conversions", value: "0", trend: "-", trendType: "neutral", context: "Influenced by active playbooks", isPrioritized: true },
-    { label: "Revenue Output", value: "$0.00", trend: "-", trendType: "neutral", context: "Based on conversions", isPrioritized: true },
-    { label: "Tasks Queued", value: (queuedCount || 0).toLocaleString(), trend: "Active", trendType: "neutral", context: "Pending execution", isPrioritized: true },
+    { label: "Contacts Processed", value: (contactsCount || 0).toLocaleString(), trend: contactsCount ? "Live" : "—", trendType: "neutral", context: "Total in CRM" },
+    { label: "Events Ingested", value: (eventsCount || 0).toLocaleString(), trend: eventsCount ? "Live" : "—", trendType: "neutral", context: "From all sources" },
+    { label: "Active Playbooks", value: activePlaybooks.length.toString(), trend: activePlaybooks.length > 0 ? "Running" : "None", trendType: activePlaybooks.length > 0 ? "positive" : "neutral", context: `${allPlaybooks?.length || 0} total configured` },
+    { label: "Messages Sent", value: (messagesCount || 0).toLocaleString(), trend: messagesCount ? "Live" : "—", trendType: "neutral", context: "Across active channels" },
+    { label: "Tasks Queued", value: (queuedCount || 0).toLocaleString(), trend: queuedCount ? "Active" : "Idle", trendType: "neutral", context: "Pending execution", isPrioritized: queuedCount ? true : false },
+    { label: "Failed Actions", value: (failedCount || 0).toLocaleString(), trend: failedCount ? "Needs attention" : "Clean", trendType: failedCount ? "negative" : "positive", context: "Execution errors", isPrioritized: failedCount ? true : false },
   ];
 
+  // Build real execution feed from recent events
+  const LIVE_FEED = (recentEvents || []).map(e => {
+    const contact = Array.isArray(e.contact) ? e.contact[0] : e.contact;
+    return {
+      id: e.id,
+      type: e.event_type?.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) || "Event",
+      contact: contact?.full_name || "System",
+      summary: `Source: ${e.source || 'unknown'}`,
+      time: formatTimeAgo(e.created_at),
+      status: e.status === "processed" ? "completed" : e.status || "queued"
+    };
+  });
+
+  // Real health metrics
   const HEALTH_MAP = [
     { label: "Catalyst Engine Status", value: "Online", status: "healthy" },
-    { label: "Routing Channels", value: "Connected", status: "healthy" },
-    { label: "delivery success rate", value: messagesCount && failedCount ? `${Math.round(100 - (failedCount / messagesCount * 100))}%` : "100%", status: "healthy" },
-    { label: "failed tasks", value: (failedCount || 0).toString(), status: failedCount && failedCount > 0 ? "warning" : "healthy" },
+    { label: "Active Playbooks", value: activePlaybooks.length > 0 ? `${activePlaybooks.length} Running` : "None", status: activePlaybooks.length > 0 ? "healthy" : "warning" },
+    { label: "Delivery Success Rate", value: messagesCount && failedCount ? `${Math.round(100 - (failedCount / messagesCount * 100))}%` : "100%", status: "healthy" },
+    { label: "Failed Tasks", value: (failedCount || 0).toString(), status: failedCount && failedCount > 0 ? "warning" : "healthy" },
   ];
 
-  // If new account with no messages, inject a highly believable "System Ready" execution log rather than fake data
-  const LIVE_FEED = recentMessages?.length ? recentMessages.map(m => ({
-    id: m.id,
-    type: m.channel === 'whatsapp' ? 'WhatsApp dispatched' : 'Event Executed',
-    contact: m.contact?.full_name || 'Anonymous',
-    summary: `${m.subject || 'Follow-up triggered'}`,
-    time: "Just now",
-    status: m.delivery_status
-  })) : [
-    { id: "init-1", type: "Engine Bootstrapped", contact: "System", summary: "Catalyst environment mapped and secured.", time: "Just now", status: "completed" },
-    { id: "init-2", type: "Channel Bound", contact: "Integrations", summary: `Endpoint listening secured for ${connectedSources}.`, time: "Just now", status: "completed" },
-    { id: "init-3", type: "Rules Enforced", contact: "Playbooks", summary: `${playbooks?.length ? playbooks[0].playbook_type : 'Default Rule'} initialized. Awaiting trigger...`, time: "Just now", status: "queued" }
-  ];
+  // Dynamic insights based on real data
+  const INSIGHTS_DATA = buildInsights(contactsCount || 0, activePlaybooks.length, eventsCount || 0);
 
   return (
     <div className="space-y-8 pb-12">
@@ -142,12 +124,12 @@ export default async function DashboardPage() {
             <h3 className="text-heading-3 font-bold">Active components for {business?.business_name || 'your workspace'}</h3>
           </div>
           <div className="grid md:grid-cols-2 gap-4">
-            {playbooks && playbooks.length > 0 ? playbooks.map((playbook) => (
+            {activePlaybooks.length > 0 ? activePlaybooks.map((playbook) => (
               <PlaybookCard
                 key={playbook.id}
                 name={playbook.playbook_type}
-                status={playbook.is_active ? "active" : "paused"}
-                events="0"
+                status="active"
+                events={(eventsCount || 0).toString()}
                 conversions="0"
                 revenue="$0"
               />
@@ -155,8 +137,8 @@ export default async function DashboardPage() {
               <Link href="/playbooks" className="col-span-2">
                 <div className="p-12 border border-dashed border-brand-border rounded-xl flex items-center justify-center text-center transition-colors hover:border-brand-primary/50 group">
                   <p className="text-brand-text-tertiary text-body-sm group-hover:text-brand-text-secondary transition-colors">
-                    System awaiting active playbooks. <br />
-                    <span className="text-brand-primary font-bold">Go to Execution Rules</span> to activate your first system.
+                    No playbooks active yet. <br />
+                    <span className="text-brand-primary font-bold">Activate a playbook</span> to start automated lead processing.
                   </p>
                 </div>
               </Link>
@@ -166,7 +148,19 @@ export default async function DashboardPage() {
 
         {/* SECTION 3: LIVE EXECUTION FEED */}
         <section className="lg:col-span-1 h-[600px]">
-          <ExecutionFeed items={LIVE_FEED as any} />
+          {LIVE_FEED.length > 0 ? (
+            <ExecutionFeed items={LIVE_FEED as any} />
+          ) : (
+            <div className="h-full border border-brand-border rounded-xl bg-brand-bg-secondary p-6 flex flex-col">
+              <h4 className="text-heading-4 font-bold mb-6">Live execution feed</h4>
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center space-y-2">
+                  <p className="text-brand-text-tertiary text-body-sm">No events recorded yet.</p>
+                  <p className="text-[11px] text-brand-text-tertiary">Send a webhook or import contacts to see activity here.</p>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
       </div>
 
@@ -194,4 +188,73 @@ export default async function DashboardPage() {
       </div>
     </div>
   );
+}
+
+// Helper: format timestamp to relative time
+function formatTimeAgo(timestamp: string): string {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays}d ago`;
+}
+
+// Helper: build dynamic insights based on real data
+function buildInsights(contacts: number, activePlaybooks: number, events: number) {
+  const insights = [];
+
+  if (contacts === 0) {
+    insights.push({
+      text: "No contacts in your pipeline yet.",
+      action: "Import contacts or connect a webhook to start capturing leads.",
+      cta: "Add leads",
+      href: "/integrations"
+    });
+  } else {
+    insights.push({
+      text: `${contacts} contact${contacts !== 1 ? 's' : ''} in your pipeline.`,
+      action: "View and manage your entire lead database.",
+      cta: "View contacts",
+      href: "/contacts"
+    });
+  }
+
+  if (activePlaybooks === 0) {
+    insights.push({
+      text: "No playbooks are active yet.",
+      action: "Activate a playbook to start automated lead processing.",
+      cta: "Activate playbook",
+      href: "/playbooks"
+    });
+  } else {
+    insights.push({
+      text: `${activePlaybooks} playbook${activePlaybooks !== 1 ? 's' : ''} running.`,
+      action: "Monitor and configure your execution rules.",
+      cta: "Manage playbooks",
+      href: "/playbooks"
+    });
+  }
+
+  if (events === 0) {
+    insights.push({
+      text: "Awaiting first event signal.",
+      action: "Connect a lead source or upload a CSV to begin.",
+      cta: "Connect source",
+      href: "/integrations"
+    });
+  } else {
+    insights.push({
+      text: `${events} event${events !== 1 ? 's' : ''} processed.`,
+      action: "Review your event pipeline for processing details.",
+      cta: "View events",
+      href: "/event-logs"
+    });
+  }
+
+  return insights;
 }

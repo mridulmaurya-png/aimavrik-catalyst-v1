@@ -1,30 +1,22 @@
-import * as React from "react"
-import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { 
-  PlayCircle, 
-  PauseCircle, 
-  Settings2, 
-  BarChart3, 
-  ChevronRight,
-  Zap,
-  ShoppingCart,
-  UserPlus,
-  RefreshCcw,
-  Calendar
-} from "lucide-react"
-import Link from "next/link"
+"use client";
+
+import * as React from "react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { PlayCircle, PauseCircle, Settings2, Zap, ShoppingCart, UserPlus, RefreshCcw, Calendar, RefreshCw, CheckCircle2 } from "lucide-react";
+import Link from "next/link";
+import { activatePlaybook, togglePlaybook } from "@/app/actions/playbooks";
 
 interface PlaybookGridItemProps {
-  id: string
-  name: string
-  category: string
-  status: 'active' | 'paused'
-  description: string
-  events: string
-  conversions: string
-  revenue: string
+  id: string;
+  name: string;
+  category: string;
+  status: 'active' | 'paused';
+  description: string;
+  events: string;
+  conversions: string;
+  revenue: string;
 }
 
 const CATEGORY_ICONS: Record<string, any> = {
@@ -38,13 +30,32 @@ export function PlaybookGridItem({
   id,
   name,
   category,
-  status,
+  status: initialStatus,
   description,
   events,
   conversions,
   revenue
 }: PlaybookGridItemProps) {
+  const [status, setStatus] = React.useState(initialStatus);
+  const [isToggling, setIsToggling] = React.useState(false);
   const Icon = CATEGORY_ICONS[category] || Zap;
+
+  const handleToggle = async () => {
+    setIsToggling(true);
+    try {
+      if (status === 'paused') {
+        await activatePlaybook(id);
+        setStatus('active');
+      } else {
+        await togglePlaybook(id, true);
+        setStatus('paused');
+      }
+    } catch (err) {
+      console.error("Failed to toggle playbook:", err);
+    } finally {
+      setIsToggling(false);
+    }
+  };
 
   return (
     <Card variant="elevated" className="p-6 flex flex-col justify-between group h-full hover:border-brand-primary/40 transition-all duration-300">
@@ -90,17 +101,33 @@ export function PlaybookGridItem({
         </div>
 
         <div className="flex items-center gap-2 pt-2">
-          <Link href={`/dashboard/playbooks/${id}`} className="flex-1">
+          <Link href={`/playbooks/${id}`} className="flex-1">
             <Button variant="secondary" className="w-full h-10 text-body-sm font-semibold gap-2 border-brand-border/40">
               <Settings2 className="w-3.5 h-3.5" />
               Configure
             </Button>
           </Link>
-          <Button variant="ghost" className="w-11 h-10 p-0 border border-brand-border/40 hover:bg-white/[0.03]">
-            <BarChart3 className="w-4 h-4 text-brand-text-tertiary" />
+          <Button
+            variant={status === 'active' ? "ghost" : "primary"}
+            className={`h-10 px-4 gap-2 text-body-sm font-semibold ${
+              status === 'active' 
+                ? 'border border-brand-border/40 hover:bg-white/[0.03]' 
+                : ''
+            }`}
+            onClick={handleToggle}
+            disabled={isToggling}
+          >
+            {isToggling ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : status === 'active' ? (
+              <PauseCircle className="w-3.5 h-3.5" />
+            ) : (
+              <CheckCircle2 className="w-3.5 h-3.5" />
+            )}
+            {isToggling ? "..." : status === 'active' ? 'Pause' : 'Activate'}
           </Button>
         </div>
       </div>
     </Card>
-  )
+  );
 }
