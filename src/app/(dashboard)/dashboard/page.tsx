@@ -5,7 +5,12 @@ import { InsightCard } from "@/components/dashboard/insight-card";
 import { ExecutionHealth } from "@/components/dashboard/health-metrics";
 import { requireWorkspace } from "@/lib/auth/context";
 import { createClient } from "@/lib/supabase/server";
+import { computeSegments, buildRevenueOpportunities, buildSuggestedActions } from "@/lib/engine/segments";
+import { formatCurrency } from "@/lib/config/constants";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { TrendingUp, Sparkles, ArrowRight, Target, DollarSign, RefreshCw, Megaphone } from "lucide-react";
 
 export default async function DashboardPage() {
   const { businessId, currencyCode } = await requireWorkspace();
@@ -58,7 +63,7 @@ export default async function DashboardPage() {
 
   const activePlaybooks = allPlaybooks?.filter(p => p.is_active) || [];
 
-  // 7. Fetch recent events for feed (NOT hardcoded)
+  // 7. Fetch recent events for feed
   const { data: recentEvents } = await supabase
     .from("events")
     .select("id, event_type, source, status, created_at, contact:contacts(full_name)")
@@ -66,17 +71,22 @@ export default async function DashboardPage() {
     .order("created_at", { ascending: false })
     .limit(8);
 
-  // Build KPI data from real DB counts
+  // 8. Compute segments for revenue panels
+  const segments = await computeSegments(supabase, businessId);
+  const revenueOps = buildRevenueOpportunities(segments, contactsCount || 0);
+  const suggestedActions = buildSuggestedActions(segments, activePlaybooks.length);
+
+  // Build KPI data
   const KPI_DATA = [
-    { label: "Contacts Processed", value: (contactsCount || 0).toLocaleString(), trend: contactsCount ? "Live" : "—", trendType: "neutral", context: "Total in CRM" },
-    { label: "Events Ingested", value: (eventsCount || 0).toLocaleString(), trend: eventsCount ? "Live" : "—", trendType: "neutral", context: "From all sources" },
-    { label: "Active Playbooks", value: activePlaybooks.length.toString(), trend: activePlaybooks.length > 0 ? "Running" : "None", trendType: activePlaybooks.length > 0 ? "positive" : "neutral", context: `${allPlaybooks?.length || 0} total configured` },
-    { label: "Messages Sent", value: (messagesCount || 0).toLocaleString(), trend: messagesCount ? "Live" : "—", trendType: "neutral", context: "Across active channels" },
-    { label: "Tasks Queued", value: (queuedCount || 0).toLocaleString(), trend: queuedCount ? "Active" : "Idle", trendType: "neutral", context: "Pending execution", isPrioritized: queuedCount ? true : false },
-    { label: "Failed Actions", value: (failedCount || 0).toLocaleString(), trend: failedCount ? "Needs attention" : "Clean", trendType: failedCount ? "negative" : "positive", context: "Execution errors", isPrioritized: failedCount ? true : false },
+    { label: "Contacts", value: (contactsCount || 0).toLocaleString(), trend: contactsCount ? "Live" : "—", trendType: "neutral", context: "Total in CRM" },
+    { label: "Events", value: (eventsCount || 0).toLocaleString(), trend: eventsCount ? "Live" : "—", trendType: "neutral", context: "All sources" },
+    { label: "Active Playbooks", value: activePlaybooks.length.toString(), trend: activePlaybooks.length > 0 ? "Running" : "None", trendType: activePlaybooks.length > 0 ? "positive" : "neutral", context: `${allPlaybooks?.length || 0} total` },
+    { label: "Messages", value: (messagesCount || 0).toLocaleString(), trend: messagesCount ? "Live" : "—", trendType: "neutral", context: "All channels" },
+    { label: "Queued", value: (queuedCount || 0).toLocaleString(), trend: queuedCount ? "Active" : "Idle", trendType: "neutral", context: "Pending", isPrioritized: queuedCount ? true : false },
+    { label: "Failed", value: (failedCount || 0).toLocaleString(), trend: failedCount ? "Attention" : "Clean", trendType: failedCount ? "negative" : "positive", context: "Errors", isPrioritized: failedCount ? true : false },
   ];
 
-  // Build real execution feed from recent events
+  // Build feed
   const LIVE_FEED = (recentEvents || []).map(e => {
     const contact = Array.isArray(e.contact) ? e.contact[0] : e.contact;
     return {
@@ -89,16 +99,15 @@ export default async function DashboardPage() {
     };
   });
 
-  // Real health metrics
   const HEALTH_MAP = [
-    { label: "Catalyst Engine Status", value: "Online", status: "healthy" },
+    { label: "Catalyst Engine", value: "Online", status: "healthy" },
     { label: "Active Playbooks", value: activePlaybooks.length > 0 ? `${activePlaybooks.length} Running` : "None", status: activePlaybooks.length > 0 ? "healthy" : "warning" },
-    { label: "Delivery Success Rate", value: messagesCount && failedCount ? `${Math.round(100 - (failedCount / messagesCount * 100))}%` : "100%", status: "healthy" },
+    { label: "Delivery Rate", value: messagesCount && failedCount ? `${Math.round(100 - (failedCount / messagesCount * 100))}%` : "100%", status: "healthy" },
     { label: "Failed Tasks", value: (failedCount || 0).toString(), status: failedCount && failedCount > 0 ? "warning" : "healthy" },
   ];
 
-  // Dynamic insights based on real data
-  const INSIGHTS_DATA = buildInsights(contactsCount || 0, activePlaybooks.length, eventsCount || 0);
+  // Top segment stats for the segments bar
+  const activeSegments = segments.filter(s => s.count > 0);
 
   return (
     <div className="space-y-8 pb-12">
@@ -117,11 +126,110 @@ export default async function DashboardPage() {
         ))}
       </section>
 
+      {/* SECTION 2: REVENUE OPPORTUNITIES + FEED */}
       <div className="grid lg:grid-cols-3 gap-8">
-        {/* SECTION 2: ACTIVE REVENUE SYSTEMS */}
         <section className="lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-heading-3 font-bold">Active components for {business?.business_name || 'your workspace'}</h3>
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-brand-primary" />
+              <h3 className="text-heading-3 font-bold">Revenue Opportunities</h3>
+            </div>
+            <Link href="/segments" className="text-body-sm text-brand-primary font-bold hover:underline flex items-center gap-1">
+              View segments <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+
+          {revenueOps.length > 0 ? (
+            <div className="grid md:grid-cols-2 gap-4">
+              {revenueOps.slice(0, 4).map((op, i) => (
+                <Card key={i} variant="elevated" className="p-5 space-y-3 group hover:border-brand-primary/30 transition-all">
+                  <div className="flex items-start justify-between">
+                    <h4 className="text-body-sm font-bold text-brand-text-primary">{op.title}</h4>
+                    <Badge variant={op.priority === "high" ? "error" : op.priority === "medium" ? "warning" : "neutral"} className="text-[9px]">
+                      {op.priority}
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-brand-text-tertiary leading-relaxed">{op.description}</p>
+                  <div className="flex items-center justify-between pt-2 border-t border-brand-border/30">
+                    <span className="text-heading-4 font-bold text-brand-primary">{op.count}</span>
+                    <Link href={op.href} className="text-[11px] text-brand-primary font-bold hover:underline flex items-center gap-1 group-hover:gap-1.5 transition-all">
+                      {op.cta} <ArrowRight className="w-3 h-3" />
+                    </Link>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card variant="elevated" className="p-8">
+              <div className="text-center space-y-2">
+                <DollarSign className="w-8 h-8 text-brand-text-tertiary mx-auto opacity-30" />
+                <p className="text-body-sm text-brand-text-tertiary">Revenue opportunities will appear as contacts enter your pipeline.</p>
+              </div>
+            </Card>
+          )}
+        </section>
+
+        {/* FEED */}
+        <section className="lg:col-span-1 h-[500px]">
+          {LIVE_FEED.length > 0 ? (
+            <ExecutionFeed items={LIVE_FEED as any} />
+          ) : (
+            <div className="h-full border border-brand-border rounded-xl bg-brand-bg-secondary p-6 flex flex-col">
+              <h4 className="text-heading-4 font-bold mb-6">Live execution feed</h4>
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center space-y-2">
+                  <p className="text-brand-text-tertiary text-body-sm">No events recorded yet.</p>
+                  <p className="text-[11px] text-brand-text-tertiary">Send a webhook or import contacts.</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* SECTION 3: AI SUGGESTED ACTIONS + ACTIVE PLAYBOOKS */}
+      <div className="grid lg:grid-cols-3 gap-8">
+        <section className="lg:col-span-2 space-y-6">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-brand-primary fill-brand-primary/20" />
+            <h3 className="text-heading-3 font-bold">AI Suggested Actions</h3>
+          </div>
+          {suggestedActions.length > 0 ? (
+            <div className="space-y-3">
+              {suggestedActions.map((action, i) => (
+                <Card key={i} variant="elevated" className="p-4 flex items-center justify-between gap-4 group hover:border-brand-primary/20 transition-all">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${action.confidence === 'high' ? 'bg-brand-primary' : 'bg-brand-text-tertiary'}`} />
+                    <p className="text-body-sm text-brand-text-primary truncate">{action.text}</p>
+                  </div>
+                  <Link href={action.href} className="text-[11px] text-brand-primary font-bold shrink-0 hover:underline flex items-center gap-1">
+                    {action.cta} <ArrowRight className="w-3 h-3" />
+                  </Link>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card variant="elevated" className="p-6 text-center">
+              <Sparkles className="w-6 h-6 text-brand-text-tertiary mx-auto opacity-30 mb-2" />
+              <p className="text-body-sm text-brand-text-tertiary">AI suggestions will appear as your pipeline grows.</p>
+            </Card>
+          )}
+        </section>
+
+        {/* EXECUTION HEALTH */}
+        <section className="lg:col-span-1">
+          <ExecutionHealth metrics={HEALTH_MAP as any} />
+        </section>
+      </div>
+
+      {/* SECTION 4: ACTIVE PLAYBOOKS + SEGMENT OVERVIEW */}
+      <div className="grid lg:grid-cols-3 gap-8">
+        <section className="lg:col-span-2 space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-heading-3 font-bold">Active Playbooks</h3>
+            <Link href="/playbooks" className="text-body-sm text-brand-primary font-bold hover:underline flex items-center gap-1">
+              All playbooks <ArrowRight className="w-3 h-3" />
+            </Link>
           </div>
           <div className="grid md:grid-cols-2 gap-4">
             {activePlaybooks.length > 0 ? activePlaybooks.map((playbook) => (
@@ -131,14 +239,14 @@ export default async function DashboardPage() {
                 status="active"
                 events={(eventsCount || 0).toString()}
                 conversions="0"
-                revenue="$0"
+                revenue={formatCurrency(0, currencyCode)}
               />
             )) : (
               <Link href="/playbooks" className="col-span-2">
                 <div className="p-12 border border-dashed border-brand-border rounded-xl flex items-center justify-center text-center transition-colors hover:border-brand-primary/50 group">
                   <p className="text-brand-text-tertiary text-body-sm group-hover:text-brand-text-secondary transition-colors">
-                    No playbooks active yet. <br />
-                    <span className="text-brand-primary font-bold">Activate a playbook</span> to start automated lead processing.
+                    No playbooks active. <br />
+                    <span className="text-brand-primary font-bold">Activate a playbook</span> to start automated processing.
                   </p>
                 </div>
               </Link>
@@ -146,51 +254,33 @@ export default async function DashboardPage() {
           </div>
         </section>
 
-        {/* SECTION 3: LIVE EXECUTION FEED */}
-        <section className="lg:col-span-1 h-[600px]">
-          {LIVE_FEED.length > 0 ? (
-            <ExecutionFeed items={LIVE_FEED as any} />
-          ) : (
-            <div className="h-full border border-brand-border rounded-xl bg-brand-bg-secondary p-6 flex flex-col">
-              <h4 className="text-heading-4 font-bold mb-6">Live execution feed</h4>
-              <div className="flex-1 flex items-center justify-center">
-                <div className="text-center space-y-2">
-                  <p className="text-brand-text-tertiary text-body-sm">No events recorded yet.</p>
-                  <p className="text-[11px] text-brand-text-tertiary">Send a webhook or import contacts to see activity here.</p>
-                </div>
-              </div>
+        {/* SEGMENT OVERVIEW */}
+        <section className="lg:col-span-1 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Target className="w-4 h-4 text-brand-text-tertiary" />
+              <h4 className="text-heading-4 font-bold">Segment Overview</h4>
             </div>
-          )}
-        </section>
-      </div>
-
-      <div className="grid lg:grid-cols-3 gap-8">
-        {/* SECTION 4: SYSTEM INSIGHTS */}
-        <section className="lg:col-span-2 space-y-6">
-          <h3 className="text-heading-3 font-bold">System insights</h3>
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {INSIGHTS_DATA.map((insight) => (
-              <InsightCard
-                key={insight.text}
-                text={insight.text}
-                action={insight.action}
-                cta={insight.cta}
-                href={(insight as any).href}
-              />
-            ))}
+            <Link href="/segments" className="text-[11px] text-brand-primary font-bold hover:underline">View all</Link>
           </div>
-        </section>
-
-        {/* SECTION 5: EXECUTION HEALTH */}
-        <section className="lg:col-span-1">
-          <ExecutionHealth metrics={HEALTH_MAP as any} />
+          <Card variant="elevated" className="p-5 space-y-3">
+            {activeSegments.length > 0 ? activeSegments.slice(0, 5).map(seg => (
+              <div key={seg.id} className="flex items-center justify-between py-1.5 border-b border-brand-border/20 last:border-0">
+                <span className="text-body-sm text-brand-text-secondary">{seg.name}</span>
+                <span className="text-body-sm font-bold text-brand-primary">{seg.count}</span>
+              </div>
+            )) : (
+              <div className="text-center py-4">
+                <p className="text-[11px] text-brand-text-tertiary">Segments populate from contact data.</p>
+              </div>
+            )}
+          </Card>
         </section>
       </div>
     </div>
   );
 }
 
-// Helper: format timestamp to relative time
 function formatTimeAgo(timestamp: string): string {
   const date = new Date(timestamp);
   const now = new Date();
@@ -202,59 +292,4 @@ function formatTimeAgo(timestamp: string): string {
   if (diffHours < 24) return `${diffHours}h ago`;
   const diffDays = Math.floor(diffHours / 24);
   return `${diffDays}d ago`;
-}
-
-// Helper: build dynamic insights based on real data
-function buildInsights(contacts: number, activePlaybooks: number, events: number) {
-  const insights = [];
-
-  if (contacts === 0) {
-    insights.push({
-      text: "No contacts in your pipeline yet.",
-      action: "Import contacts or connect a webhook to start capturing leads.",
-      cta: "Add leads",
-      href: "/integrations"
-    });
-  } else {
-    insights.push({
-      text: `${contacts} contact${contacts !== 1 ? 's' : ''} in your pipeline.`,
-      action: "View and manage your entire lead database.",
-      cta: "View contacts",
-      href: "/contacts"
-    });
-  }
-
-  if (activePlaybooks === 0) {
-    insights.push({
-      text: "No playbooks are active yet.",
-      action: "Activate a playbook to start automated lead processing.",
-      cta: "Activate playbook",
-      href: "/playbooks"
-    });
-  } else {
-    insights.push({
-      text: `${activePlaybooks} playbook${activePlaybooks !== 1 ? 's' : ''} running.`,
-      action: "Monitor and configure your execution rules.",
-      cta: "Manage playbooks",
-      href: "/playbooks"
-    });
-  }
-
-  if (events === 0) {
-    insights.push({
-      text: "Awaiting first event signal.",
-      action: "Connect a lead source or upload a CSV to begin.",
-      cta: "Connect source",
-      href: "/integrations"
-    });
-  } else {
-    insights.push({
-      text: `${events} event${events !== 1 ? 's' : ''} processed.`,
-      action: "Review your event pipeline for processing details.",
-      cta: "View events",
-      href: "/event-logs"
-    });
-  }
-
-  return insights;
 }

@@ -12,13 +12,17 @@ import {
   History, 
   CreditCard, 
   Settings,
-  Hexagon
+  Hexagon,
+  Target,
+  Megaphone
 } from "lucide-react";
 
 const mainNav = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Contacts", href: "/contacts", icon: Users },
+  { name: "Segments", href: "/segments", icon: Target },
   { name: "Playbooks", href: "/playbooks", icon: PlayCircle },
+  { name: "Campaigns", href: "/campaigns", icon: Megaphone },
   { name: "Integrations", href: "/integrations", icon: Share2 },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
 ];
