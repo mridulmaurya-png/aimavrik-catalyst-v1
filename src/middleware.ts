@@ -35,25 +35,26 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const publicAuthRoutes = ["/login", "/signup", "/reset-password", "/auth/callback", "/auth/update-password"];
-  const isPublicAuthRoute = publicAuthRoutes.some(route => request.nextUrl.pathname.startsWith(route));
-
-  // 1. Logged in users trying to access login/signup/etc -> /dashboard
-  if (user && isPublicAuthRoute) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
-
-  // 2. Logged in users on root -> /dashboard
-  if (user && request.nextUrl.pathname === "/") {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
-
-  // 3. Logged out users trying to access protected areas -> /login
   const protectedRoutes = ["/dashboard", "/contacts", "/playbooks", "/integrations", "/settings", "/billing", "/analytics", "/event-logs", "/onboarding", "/ops"];
   const isProtectedRoute = protectedRoutes.some(route => request.nextUrl.pathname.startsWith(route));
 
+  const publicAuthRoutes = ["/login", "/signup", "/reset-password", "/auth/callback", "/auth/update-password"];
+  const isPublicAuthRoute = publicAuthRoutes.some(route => request.nextUrl.pathname.startsWith(route));
+
   if (!user && isProtectedRoute) {
     return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  // 4. Logged in users trying to access login/signup/etc -> /dashboard or /onboarding
+  if (user && isPublicAuthRoute) {
+    // We do a lightweight check for workspace via cookies if possible, or just let the page handle it.
+    // For middleware, we'll redirect to /dashboard and let the dashboard force onboarding if needed.
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  // 5. Logged in users on root -> /dashboard
+  if (user && request.nextUrl.pathname === "/") {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return response;
