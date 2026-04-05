@@ -76,3 +76,37 @@ export function formatSegment(segment: string | null | undefined): string {
   if (!segment) return "General";
   return segment.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
+
+/**
+ * Workspace Managed Lifecycle Status
+ * Catalyst is a managed AI revenue system. 
+ * Every workspace tracks through this unified journey.
+ */
+export const WORKSPACE_STATUSES = [
+  "signup_received",
+  "onboarding_not_started",
+  "onboarding_submitted",
+  "under_review",
+  "setup_in_progress",
+  "active",
+  "restricted",
+] as const;
+
+export type WorkspaceStatus = typeof WORKSPACE_STATUSES[number];
+
+/**
+ * Strict Execution Gating
+ * Automated lead capture and follow-up is ONLY allowed for 'active' workspaces.
+ * This ensures AiMavrik Ops has verified the setup and connectors.
+ */
+export function isExecutionAllowed(status: string | null | undefined): boolean {
+  return status === "active";
+}
+
+export function formatStatus(status: string | null | undefined): string {
+  if (!status || status === "signup_received") return "Signup Received";
+  if (status === "onboarding_not_started") return "Review Setup";
+  if (status === "onboarding_submitted") return "Submitted";
+  if (status === "under_review") return "In Review";
+  return status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}

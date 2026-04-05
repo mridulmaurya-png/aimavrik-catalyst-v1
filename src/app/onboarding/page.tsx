@@ -10,7 +10,8 @@ import {
   StepPlaybook,
   StepSuccess
 } from "@/components/onboarding/onboarding-steps"
-import { createWorkspace, finishOnboarding } from "@/app/actions/onboarding"
+import { createWorkspace } from "@/lib/actions/auth-actions"
+import { submitOnboarding } from "@/app/actions/onboarding"
 import { getOnboardingState, saveSource, saveChannel, savePlaybook } from "@/app/actions/onboarding-state"
 
 export default function OnboardingPage() {

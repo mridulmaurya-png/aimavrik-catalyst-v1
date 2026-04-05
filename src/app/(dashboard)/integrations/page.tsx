@@ -2,6 +2,7 @@ import { WebhookSetupPanel } from "@/components/integrations/webhook-setup";
 import { CSVUploadPanel } from "@/components/integrations/csv-upload-panel";
 import { IntegrationCard } from "@/components/integrations/integration-card";
 import { ConnectorCategoryBlock } from "@/components/integrations/connector-category";
+import { ConnectorSettingsPanel } from "@/components/integrations/connector-settings";
 import { Button } from "@/components/ui/button";
 import { requireWorkspace } from "@/lib/auth/context";
 import { createClient } from "@/lib/supabase/server";
@@ -51,6 +52,13 @@ export default async function IntegrationsPage() {
     .from("integrations")
     .select("id, provider, status, created_at")
     .eq("business_id", businessId);
+
+  // Fetch business settings for connector config
+  const { data: bizSettings } = await supabase
+    .from("business_settings")
+    .select("support_email, config_json, brand_voice_json")
+    .eq("business_id", businessId)
+    .maybeSingle();
 
   // Fetch event counts per source
   const { data: eventCounts } = await supabase
@@ -135,6 +143,11 @@ export default async function IntegrationsPage() {
           <p className="text-[11px] text-brand-text-tertiary">Import contacts via CSV or configure a webhook below.</p>
         </div>
       )}
+
+      {/* Connector Settings UI */}
+      <div className="pt-8 border-t border-brand-border/50">
+        <ConnectorSettingsPanel initialSettings={bizSettings as any || {}} />
+      </div>
 
       <WebhookSetupPanel businessId={businessId} />
 

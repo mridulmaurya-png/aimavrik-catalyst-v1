@@ -44,19 +44,19 @@ export function QuickActions() {
     <Card variant="elevated" className="p-6 space-y-4">
       <h4 className="text-heading-4 font-bold">Quick Actions</h4>
       <div className="grid grid-cols-1 gap-2">
-        <Button variant="secondary" className="justify-start gap-3 h-10 border-brand-primary/20 hover:border-brand-primary/40">
+        <Button variant="secondary" disabled title="Direct WhatsApp sending — coming in V2" className="justify-start gap-3 h-10 border-brand-primary/20 hover:border-brand-primary/40 opacity-50 cursor-not-allowed">
           <MessageCircle className="w-4 h-4 text-brand-primary" />
           Send WhatsApp now
         </Button>
-        <Button variant="ghost" className="justify-start gap-3 h-10 bg-white/[0.02]">
+        <Button variant="ghost" disabled title="Direct Email sending — coming in V2" className="justify-start gap-3 h-10 bg-white/[0.02] opacity-50 cursor-not-allowed">
           <Send className="w-4 h-4" />
           Send Email now
         </Button>
-        <Button variant="ghost" className="justify-start gap-3 h-10 bg-white/[0.02] text-functional-warning">
+        <Button variant="ghost" disabled title="Sales escalation — coming in V2" className="justify-start gap-3 h-10 bg-white/[0.02] text-functional-warning opacity-50 cursor-not-allowed">
           <ShieldAlert className="w-4 h-4" />
           Escalate to Sales
         </Button>
-        <Button variant="ghost" className="justify-start gap-3 h-10 bg-white/[0.02] text-functional-error">
+        <Button variant="ghost" disabled title="Manual automation pause — coming in V2" className="justify-start gap-3 h-10 bg-white/[0.02] text-functional-error opacity-50 cursor-not-allowed">
           <XCircle className="w-4 h-4" />
           Pause all automation
         </Button>

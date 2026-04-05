@@ -18,7 +18,7 @@ interface FeedItem {
   contact: string
   summary: string
   time: string
-  status: 'queued' | 'sent' | 'failed' | 'completed' | 'active'
+  status: 'queued' | 'sent' | 'failed' | 'completed' | 'active' | 'handed_off' | 'blocked'
 }
 
 const EVENT_ICONS: Record<string, any> = {
@@ -52,9 +52,11 @@ export function ExecutionFeed({ items }: ExecutionFeedProps) {
               )}
               
               <div className={cn(
-                "relative z-10 w-8 h-8 rounded-full flex items-center justify-center border border-brand-border bg-brand-bg-secondary",
+                "relative z-10 w-8 h-8 rounded-full flex items-center justify-center border border-brand-border bg-brand-bg-secondary transition-all",
                 item.status === 'failed' && "border-functional-error/30 text-functional-error",
-                item.status === 'completed' && "border-functional-success/30 text-functional-success"
+                item.status === 'completed' && "border-functional-success/30 text-functional-success",
+                item.status === 'handed_off' && "border-functional-info/30 text-functional-info",
+                item.status === 'blocked' && "border-brand-text-tertiary/30 text-brand-text-tertiary grayscale"
               )}>
                 <Icon className="w-4 h-4" />
               </div>
@@ -72,10 +74,12 @@ export function ExecutionFeed({ items }: ExecutionFeedProps) {
                 <div className="mt-1">
                   <Badge variant={
                     item.status === 'completed' ? 'success' :
+                    item.status === 'handed_off' ? 'info' :
                     item.status === 'failed' ? 'error' :
-                    item.status === 'queued' ? 'info' : 'neutral'
-                  } className="px-1.5 py-0 text-[10px]">
-                    {item.status}
+                    item.status === 'blocked' ? 'neutral' :
+                    'info'
+                  } className="px-1.5 py-0 text-[10px] h-4 leading-none font-bold uppercase tracking-tighter">
+                    {item.status.replace('_', ' ')}
                   </Badge>
                 </div>
               </div>

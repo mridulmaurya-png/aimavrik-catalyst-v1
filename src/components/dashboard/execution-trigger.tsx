@@ -6,10 +6,12 @@ import { Play, RefreshCw, CheckCircle2 } from "lucide-react";
 import { runWorkspaceExecution } from "@/app/actions/execution";
 import { useRouter } from "next/navigation";
 
-export function ExecutionTrigger({ queuedCount }: { queuedCount: number }) {
+export function ExecutionTrigger({ queuedCount, businessStatus }: { queuedCount: number, businessStatus?: string }) {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<{ processed: number } | null>(null);
   const router = useRouter();
+
+  const isAllowed = businessStatus === "active";
 
   if (queuedCount === 0 && !result) return null;
 
@@ -38,14 +40,16 @@ export function ExecutionTrigger({ queuedCount }: { queuedCount: number }) {
   }
 
   return (
-    <Button 
-      variant="primary" 
-      onClick={handleRun} 
-      disabled={running}
-      className="gap-2 shrink-0 h-9 text-xs shadow-glow-primary animate-in fade-in duration-500"
-    >
-      {running ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
-      {running ? "Processing Engine..." : `Run Queue (${queuedCount})`}
-    </Button>
+    <div title={!isAllowed ? "Workspace must be Active to run orchestration" : undefined}>
+      <Button 
+        variant="primary" 
+        onClick={handleRun} 
+        disabled={running || !isAllowed}
+        className={`gap-2 shrink-0 h-9 text-xs animate-in fade-in duration-500 ${!isAllowed ? 'opacity-40 grayscale cursor-not-allowed' : 'shadow-glow-primary'}`}
+      >
+        {running ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+        {running ? "Processing Engine..." : isAllowed ? `Run Queue (${queuedCount})` : "Awaiting Activation"}
+      </Button>
+    </div>
   );
 }

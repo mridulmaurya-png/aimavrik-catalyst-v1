@@ -18,7 +18,7 @@ export async function requireWorkspace() {
   
   const { data: membership, error } = await supabase
     .from("team_members")
-    .select("business_id, role, businesses(id, business_name, business_type, website, timezone, currency_code)")
+    .select("business_id, role, businesses(id, business_name, business_type, website, timezone, currency_code, status)")
     .eq("user_id", user.id)
     .limit(1)
     .maybeSingle();
@@ -34,6 +34,25 @@ export async function requireWorkspace() {
     businessId: membership.business_id,
     role: membership.role,
     business: biz,
-    currencyCode: biz?.currency_code || 'INR'
+    currencyCode: (biz as any)?.currency_code || 'INR',
+    businessStatus: (biz as any)?.status || 'signup_received'
   };
+}
+
+/**
+ * Strict internal access gate for AiMavrik Ops.
+ * Uses ADMIN_EMAILS environment variable for authorization.
+ */
+export async function requireAdmin() {
+  const user = await requireUser();
+  const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
+  
+  const isInternal = user.email && adminEmails.includes(user.email.toLowerCase());
+  
+  if (!isInternal) {
+    console.warn(`[AUTH] Unauthorized ops access attempt by ${user.email}`);
+    redirect("/dashboard");
+  }
+
+  return user;
 }

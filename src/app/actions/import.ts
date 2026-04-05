@@ -35,32 +35,38 @@ export async function importContacts(rows: ImportRow[]) {
 
   for (const row of batch) {
     try {
-      // Normalize the row into our webhook payload format
+      // 1. Base Identification normalization
+      const email = row.email?.trim().toLowerCase() || undefined;
+      const phone = row.phone?.toString().trim() || undefined;
+
+      if (!email && !phone) {
+        errors++;
+        errorDetails.push(`Row skipped — no identifier: ${row.full_name || 'Unknown'}`);
+        continue;
+      }
+
+      // 2. Data Enrichment from mapping
       const fullName = row.full_name || row.name || 
         [row.first_name, row.last_name].filter(Boolean).join(' ') || 
         'Unknown Contact';
 
-      const email = row.email?.trim().toLowerCase() || undefined;
-      const phone = row.phone?.trim() || undefined;
-
-      if (!email && !phone) {
-        errors++;
-        errorDetails.push(`Row skipped — no email or phone: ${fullName}`);
-        continue;
-      }
-
+      // 3. Metadata & Revenue Enrichment
       const payload = {
         business_id: businessId,
         event_type: "csv_import",
-        source: "csv_upload",
+        source: row.source || "csv_upload",
         email,
         phone,
         full_name: fullName,
         name: fullName,
         metadata: {
-          import_source: row.source || "csv",
+          import_source: "csv_mapping",
+          company: row.company || null,
+          lifecycle_stage: row.lifecycle_stage || "lead",
+          lead_score: row.lead_score ? parseInt(row.lead_score.toString()) : null,
+          opportunity_value: row.opportunity_value ? parseFloat(row.opportunity_value.toString()) : null,
           notes: row.notes || null,
-          raw_row: row
+          raw_mapped_row: row
         }
       };
 

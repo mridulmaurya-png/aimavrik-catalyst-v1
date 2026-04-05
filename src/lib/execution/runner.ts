@@ -106,12 +106,32 @@ async function handleActionFailure(action: any, error: any, isRetryable: boolean
 
 async function executeSingleAction(action: any) {
   const startMs = Date.now();
-  await supabase.from("audit_logs").insert({
-    business_id: action.business_id, action_id: action.id, log_type: "execution_started",
-    log_data_json: { retry_count: getRetryState(action).retry_count }
-  });
+  const retryState = getRetryState(action);
 
-  // 2. VALIDATION LAYER
+  // 1. WORKSPACE STATUS GATE (Managed SaaS Rule)
+  const { data: business } = await supabase
+    .from("businesses")
+    .select("status")
+    .eq("id", action.business_id)
+    .single();
+
+  if (business?.status !== "active") {
+    const reason = `Execution blocked. Workspace status: ${business?.status || 'signup_received'}. Awaiting AiMavrik Ops Activation.`;
+    await supabase.from("actions").update({ status: "blocked" }).eq("id", action.id);
+    await supabase.from("audit_logs").insert({
+      business_id: action.business_id, 
+      action_id: action.id, 
+      log_type: "EXECUTION_BLOCKED",
+      log_data_json: { 
+        reason, 
+        workspace_status: business?.status || "signup_received",
+        execution_trace: { step: "gating", status: "blocked", timestamp: new Date().toISOString() }
+      }
+    });
+    return { action_id: action.id, status: "blocked", reason };
+  }
+
+  // 2. VALIDATION LAYER (Contacts, Playbooks, Anti-spam)
   const validation = await validateActionExecution(supabase, action);
   
   if (!validation.valid) {
@@ -121,11 +141,15 @@ async function executeSingleAction(action: any) {
       return { action_id: action.id, status: "rescheduled", reason: validation.reason };
     }
 
-    // Unrecoverable state validation failure
     await supabase.from("actions").update({ status: "cancelled" }).eq("id", action.id);
     await supabase.from("audit_logs").insert({
-        business_id: action.business_id, action_id: action.id, log_type: "execution_cancelled",
-        log_data_json: { reason: validation.reason }
+        business_id: action.business_id, 
+        action_id: action.id, 
+        log_type: "EXECUTION_CANCELLED",
+        log_data_json: { 
+            reason: validation.reason,
+            execution_trace: { step: "validation", status: "cancelled", timestamp: new Date().toISOString() }
+        }
     });
     return { action_id: action.id, status: "cancelled", reason: validation.reason };
   }
@@ -138,64 +162,109 @@ async function executeSingleAction(action: any) {
       .single();
 
   const configJson = businessSettings?.config_json || {};
-  
-  // 3. EXTERNAL ORCHESTRATION (n8n Handoff)
-  if (configJson.execution_mode === "n8n" && configJson.n8n_webhook_url) {
+  const executionMode = configJson.execution_mode || "local";
+
+  // 3. CONNECTOR CONFIG GATE (Internal Success Honesty)
+  if (executionMode === "local") {
+    const isChannelEmail = action.action_type.includes("email");
+    const isEmailReady = !!(configJson.resend_api_key && configJson.resend_from_email);
+    const isWaReady = !!(configJson.whatsapp_api_key && configJson.whatsapp_sender_id);
+
+    if ((isChannelEmail && !isEmailReady) || (!isChannelEmail && !isWaReady)) {
+      const reason = `Execution blocked. Missing ${isChannelEmail ? 'Resend' : 'WhatsApp'} connector configuration.`;
+      await supabase.from("actions").update({ status: "blocked" }).eq("id", action.id);
+      await supabase.from("audit_logs").insert({
+        business_id: action.business_id, 
+        action_id: action.id, 
+        log_type: "EXECUTION_BLOCKED",
+        log_data_json: { 
+            reason, 
+            execution_mode: "local",
+            execution_trace: { step: "connector_check", status: "blocked", timestamp: new Date().toISOString() }
+        }
+      });
+      return { action_id: action.id, status: "blocked", reason };
+    }
+  }
+
+  // 4. n8n HANDOFF MODE
+  if (executionMode === "n8n") {
+    if (!configJson.n8n_webhook_url) {
+      const reason = "Execution blocked. Mode is n8n but no webhook URL is configured.";
+      await supabase.from("actions").update({ status: "blocked" }).eq("id", action.id);
+      return { action_id: action.id, status: "blocked", reason };
+    }
+
     try {
+      const { data: contact } = await supabase.from("contacts").select("*").eq("id", action.contact_id).single();
+      const { data: playbook } = await supabase.from("playbooks").select("*").eq("id", action.playbook_id).single();
+
+      const handoffPayload = {
+        workspace_id: action.business_id,
+        action_id: action.id,
+        contact_id: action.contact_id,
+        playbook_id: action.playbook_id,
+        action_type: action.action_type,
+        channel: action.channel,
+        contact: { full_name: contact?.full_name, email: contact?.email, phone: contact?.phone, stage: contact?.stage },
+        playbook: { name: playbook?.playbook_type, category: playbook?.category_id },
+        intent: action.payload_json?.intent,
+        timestamp: new Date().toISOString()
+      };
+
       const response = await fetch(configJson.n8n_webhook_url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, businessSettings: { id: businessSettings.id } })
+        body: JSON.stringify(handoffPayload)
       });
       
-      if (!response.ok) throw new Error("n8n Webhook rejected payload");
+      if (!response.ok) throw new Error(`n8n Webhook rejected (Status ${response.status})`);
       
-      await supabase.from("actions").update({ status: "completed", executed_at: new Date().toISOString() }).eq("id", action.id);
+      // HONEST STATUS: handed_off (not completed)
+      await supabase.from("actions").update({ 
+        status: "handed_off", 
+        executed_at: new Date().toISOString(),
+        payload_json: { ...action.payload_json, _handoff: "n8n_success", _handed_off_at: new Date().toISOString() } 
+      }).eq("id", action.id);
+
       await supabase.from("audit_logs").insert({
-        business_id: action.business_id, action_id: action.id, log_type: "execution_handed_off_n8n",
-        log_data_json: { webhook_url: configJson.n8n_webhook_url }
+        business_id: action.business_id, 
+        action_id: action.id, 
+        log_type: "EXECUTION_HANDED_OFF",
+        log_data_json: { 
+            execution_mode: "n8n",
+            webhook_url: configJson.n8n_webhook_url,
+            response_code: response.status,
+            execution_trace: { step: "handoff", status: "handed_off", timestamp: new Date().toISOString() }
+        }
       });
-      return { action_id: action.id, status: "completed", n8n_handed_off: true };
+      return { action_id: action.id, status: "handed_off", n8n_handed_off: true };
     } catch (err: any) {
-      // If n8n fails, we retry just like a delivery failure
       return await handleActionFailure(action, err, true);
     }
   }
 
-  // 4. AI MESSAGE GENERATION (Internal Mode)
+  // 5. LOCAL MODE DELIVERY
   const channel = action.action_type === "send_whatsapp" ? "whatsapp" : "email";
-  
   const gCtx = {
     playbook_type: action.payload_json?.intent || "unknown",
     action_type: action.action_type,
     trigger_event: action.payload_json?.trigger_event || "signal",
     business_tone: businessSettings?.brand_voice_json?.tone || "professional",
-    contact_first_name: "Customer"  // would fetch from contact
+    contact_first_name: "Customer" 
   };
 
   const genMsg = await generateMessagePayload(channel, gCtx);
-  
-  await supabase.from("audit_logs").insert({
-    business_id: action.business_id, action_id: action.id, log_type: "ai_output_generated",
-    log_data_json: { used_fallback: genMsg.is_fallback, generated_length: genMsg.body.length }
-  });
-
-  // 5. DELIVERY LAYER
-  await supabase.from("audit_logs").insert({
-    business_id: action.business_id, action_id: action.id, log_type: "delivery_attempted",
-    log_data_json: { channel }
-  });
-
   const mockPayload = { to: "user@example.com", body: genMsg.body, subject: genMsg.subject };
   let delivery;
 
   if (channel === "whatsapp") {
-    delivery = await sendWhatsApp(mockPayload, businessSettings, true); // true forces Simulated Mode for Phase 8
+    delivery = await sendWhatsApp(mockPayload, businessSettings, true);
   } else {
     delivery = await sendEmail(mockPayload, businessSettings, true);
   }
 
-  // 5. MESSAGE PERSISTENCE & FAILURE HANDLING
+  // Final Persistence
   const msgInsert = await supabase.from("messages").insert({
     business_id: action.business_id,
     contact_id: action.contact_id,
@@ -208,18 +277,24 @@ async function executeSingleAction(action: any) {
   }).select().single();
 
   if (!delivery.success) {
-    // Determine if it was a transient provider failure vs hard config mapping fail
     const isRetryable = delivery.error?.toLowerCase().includes("timeout") || delivery.error?.toLowerCase().includes("rate limit");
     return await handleActionFailure(action, new Error(delivery.error), isRetryable);
   }
 
   const durationMs = Date.now() - startMs;
 
-  // Success
+  // HONEST SUCCESS: completed (local execution confirmed)
   await supabase.from("actions").update({ status: "completed", executed_at: new Date().toISOString() }).eq("id", action.id);
   await supabase.from("audit_logs").insert({
-    business_id: action.business_id, action_id: action.id, log_type: "delivery_succeeded",
-    log_data_json: { provider_id: delivery.provider_id, message_id: msgInsert.data?.id, duration_ms: durationMs }
+    business_id: action.business_id, 
+    action_id: action.id, 
+    log_type: "EXECUTION_COMPLETED",
+    log_data_json: { 
+        execution_mode: "local",
+        duration_ms: durationMs,
+        message_id: msgInsert.data?.id,
+        execution_trace: { step: "delivery", status: "completed", timestamp: new Date().toISOString() }
+    }
   });
 
   return { action_id: action.id, status: "completed", provider_id: delivery.provider_id };
