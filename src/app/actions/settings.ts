@@ -8,8 +8,9 @@ export async function updateBusinessSetting(field: string, newValue: any) {
   const { businessId } = await requireWorkspace();
 
   // Validate the field is allowed (Merge-safe JSON updates vs text fields)
-  const allowedFields = ["support_email", "support_phone", "brand_voice_json", "communication_hours_json"];
+  const allowedFields = ["support_email", "support_phone", "brand_voice_json", "communication_hours_json", "config_json", "branding_json"];
   if (!allowedFields.includes(field)) {
+    console.error(`[SETTINGS] Blocked unauthorized field update: ${field}`);
     throw new Error("Invalid field update");
   }
 

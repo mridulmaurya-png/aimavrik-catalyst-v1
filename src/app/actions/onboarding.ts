@@ -52,10 +52,14 @@ export async function submitOnboarding(input: OnboardingInput) {
         status: "onboarding_submitted"
     }).eq("id", businessId);
 
-    // 4. Send Email Notification
-    const name = user.user_metadata?.full_name || "there";
-    const emailData = ONBOARDING_EMAILS.ONBOARDING_SUBMITTED(name);
-    await sendSystemNotification(user.email!, emailData.subject, emailData.body);
+    // 4. Send Email Notification (Try-Catch to prevent crash)
+    try {
+        const name = user.user_metadata?.full_name || "there";
+        const emailData = ONBOARDING_EMAILS.ONBOARDING_SUBMITTED(name);
+        await sendSystemNotification(user.email!, emailData.subject, emailData.body);
+    } catch (e) {
+        console.error("[MAIL] Failed to send onboarding submission email:", e);
+    }
 
     revalidatePath("/dashboard");
     return { success: true };
