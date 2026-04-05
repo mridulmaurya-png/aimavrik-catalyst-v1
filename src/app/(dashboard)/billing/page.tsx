@@ -69,7 +69,7 @@ export default async function BillingPage() {
                   <p className="text-display-s font-bold text-brand-text-primary">{contactsCount.toLocaleString()}</p>
                   <p className="text-body-xs text-brand-text-secondary">Managed Contacts</p>
                 </div>
-                <Badge variant="outline">Within Limit</Badge>
+                <Badge variant="info">Within Limit</Badge>
               </div>
             </Card>
             <Card className="p-6 space-y-4">
