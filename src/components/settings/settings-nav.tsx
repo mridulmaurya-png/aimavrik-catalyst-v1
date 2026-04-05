@@ -23,10 +23,6 @@ export function SettingsTabNav({ active, onChange }: { active: string, onChange:
   const tabs = [
     { id: 'profile', label: 'Business Profile' },
     { id: 'voice', label: 'Brand Voice' },
-    { id: 'comm', label: 'Communication' },
-    { id: 'orchestration', label: 'Orchestration' },
-    { id: 'team', label: 'Team Settings' },
-    { id: 'security', label: 'Security' },
   ]
 
   return (

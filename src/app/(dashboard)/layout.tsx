@@ -1,16 +1,25 @@
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
+import { requireWorkspace } from "@/lib/auth/context";
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { user, business } = await requireWorkspace();
+
+  const identity = {
+    businessName: business?.business_name || "",
+    fullName: user.user_metadata?.full_name || "",
+    email: user.email || ""
+  };
+
   return (
     <div className="flex h-screen bg-brand-bg-primary overflow-hidden">
       {/* Sidebar - Hidden on mobile, fixed on desktop */}
       <div className="hidden lg:block h-full">
-        <Sidebar />
+        <Sidebar identity={identity} />
       </div>
 
       {/* Main Content Area */}

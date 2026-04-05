@@ -16,14 +16,7 @@ export default async function PlaybooksPage() {
     .eq("business_id", businessId)
     .order("created_at", { ascending: true });
 
-  if (error) {
-    return (
-      <div className="p-12 text-center">
-        <ShieldAlert className="w-12 h-12 text-functional-error mx-auto opacity-20" />
-        <h2 className="text-heading-3 mt-4 font-bold">Failed to load playbooks</h2>
-      </div>
-    );
-  }
+  const safePlaybooks = playbooks || [];
 
   // Fetch real stats per playbook
   const { data: actionCounts } = await supabase
@@ -38,7 +31,7 @@ export default async function PlaybooksPage() {
 
   // Group by category
   const grouped = new Map<string, any[]>();
-  (playbooks || []).forEach(pb => {
+  safePlaybooks.forEach(pb => {
     const cat = pb.config_json?.category || "uncategorized";
     if (!grouped.has(cat)) grouped.set(cat, []);
     grouped.get(cat)!.push(pb);
@@ -72,7 +65,7 @@ export default async function PlaybooksPage() {
         })}
       </div>
 
-      {playbooks && playbooks.length > 0 ? (
+      {safePlaybooks.length > 0 ? (
         <div className="space-y-10">
           {Array.from(grouped.entries()).map(([catId, pbs]) => {
             const catConfig = PLAYBOOK_CATEGORIES.find(c => c.id === catId);

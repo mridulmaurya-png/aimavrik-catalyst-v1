@@ -33,8 +33,11 @@ const secondaryNav = [
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
-export function Sidebar() {
+export function Sidebar({ identity }: { identity?: { businessName: string, fullName: string, email: string } }) {
   const pathname = usePathname();
+
+  const mainLabel = identity?.businessName || identity?.fullName || "My Workspace";
+  const subLabel = (identity?.businessName && identity?.fullName) ? identity.fullName : identity?.email || "owner";
 
   return (
     <aside className="w-64 border-r border-brand-border bg-brand-bg-secondary flex flex-col h-full">
@@ -96,9 +99,9 @@ export function Sidebar() {
         <div className="flex items-center justify-between px-3 py-2">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-brand-bg-elevated border border-brand-border" />
-            <div className="flex-1 min-w-0">
-              <p className="text-body-sm font-medium truncate">Founder</p>
-              <p className="text-[10px] text-brand-text-tertiary truncate">owner</p>
+            <div className="flex-1 min-w-0 font-medium">
+              <p className="text-body-sm truncate">{mainLabel}</p>
+              <p className="text-[10px] text-brand-text-tertiary truncate">{subLabel}</p>
             </div>
           </div>
           <button 
