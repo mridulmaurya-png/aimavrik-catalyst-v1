@@ -16,10 +16,18 @@ export default async function BillingPage() {
   const { businessId } = await requireWorkspace();
   const supabase = await createClient();
 
-  const { count: contactsCount } = await supabase
-    .from("contacts")
-    .select("*", { count: "exact", head: true })
-    .eq("business_id", businessId);
+  let contactsCount = 0;
+  
+  try {
+    const { count } = await supabase
+      .from("contacts")
+      .select("*", { count: "exact", head: true })
+      .eq("business_id", businessId);
+    
+    contactsCount = count || 0;
+  } catch (e) {
+    console.error("[BILLING] Failed to fetch usage data, falling back to defaults:", e);
+  }
 
   return (
     <div className="space-y-10 pb-24">
