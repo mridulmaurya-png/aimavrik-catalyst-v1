@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { requireWorkspace } from "@/lib/auth/context";
 import { createClient } from "@/lib/supabase/server";
-import { 
-  CreditCard, 
+import {
+  CreditCard,
   ShieldCheck,
   Mail
 } from "lucide-react";
@@ -23,7 +23,7 @@ export default async function BillingPage() {
         .from("contacts")
         .select("*", { count: "exact", head: true })
         .eq("business_id", businessId);
-      
+
       contactsCount = count || 0;
     }
   } catch (e) {
@@ -54,8 +54,8 @@ export default async function BillingPage() {
                   Your AI revenue system is managed by AiMavrik Ops. Your workspace operates under a dedicated managed service agreement with priority delivery infrastructure.
                 </p>
                 <div className="flex items-center gap-2 pt-2">
-                   <Badge variant="success" className="px-3 py-1">Active</Badge>
-                   <span className="text-[11px] text-brand-text-tertiary font-medium">Enterprise Tier Recovery Active</span>
+                  <Badge variant="success" className="px-3 py-1">Active</Badge>
+                  <span className="text-[11px] text-brand-text-tertiary font-medium">Enterprise Tier Recovery Active</span>
                 </div>
               </div>
             </div>
@@ -98,7 +98,7 @@ export default async function BillingPage() {
                   <p className="text-[11px] text-brand-text-tertiary">Direct bank transfer activated</p>
                 </div>
               </div>
-              
+
               <a href="mailto:ops@aimavrik.com?subject=Billing Inquiry" className="block">
                 <Button variant="secondary" className="w-full gap-2 h-11 font-bold">
                   <Mail className="w-4 h-4" />

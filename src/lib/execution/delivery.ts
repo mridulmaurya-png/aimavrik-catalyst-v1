@@ -76,7 +76,7 @@ export async function sendEmail(
         "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        from: config?.default_sender_email || "onboarding@resend.dev",
+        from: config?.default_sender_email || "no-reply@catalyst.aimavrik.com",
         to: [payload.to],
         subject: payload.subject || "Message from Catalyst",
         html: payload.body.replace(/\n/g, "<br>")
