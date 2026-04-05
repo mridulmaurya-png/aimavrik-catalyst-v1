@@ -26,7 +26,7 @@ export async function submitOnboarding(input: OnboardingInput) {
         .from("team_members")
         .select("business_id, business:businesses(business_name, status)")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
     
     if (!membership?.business_id) throw new Error("Could not find workspace");
 
@@ -79,7 +79,7 @@ export async function updateOnboardingStatus(businessId: string, newStatus: stri
         .from("businesses")
         .select("id, status, team_members(user_id, users(email, full_name))")
         .eq("id", businessId)
-        .single();
+        .maybeSingle();
     
     const owner = (targetBiz?.team_members as any)?.[0]?.users;
     if (owner?.email) {

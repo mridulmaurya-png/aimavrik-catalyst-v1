@@ -138,7 +138,7 @@ export function CSVUploadPanel() {
           </div>
           <div className="flex items-center gap-3">
             <Button
-              variant="outline"
+              variant="secondary"
               className="h-9 px-4 gap-2 text-[11px] font-bold uppercase tracking-widest border-brand-border/60"
               onClick={() => {
                 const headers = ["full_name", "email", "phone", "stage", "source", "total_revenue"];

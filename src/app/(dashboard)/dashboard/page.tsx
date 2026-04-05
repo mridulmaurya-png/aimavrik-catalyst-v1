@@ -36,7 +36,7 @@ export default async function DashboardPage() {
     .from("businesses")
     .select("business_name, status")
     .eq("id", businessId)
-    .single();
+    .maybeSingle();
 
   const status = business?.status || businessStatus || "signup_received";
 
