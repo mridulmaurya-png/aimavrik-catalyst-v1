@@ -19,7 +19,9 @@ export default function ResetPasswordPage() {
     setError("");
     const supabase = createClient();
     
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+    // Use window.location.origin for the most reliable redirect base, 
+    // falling back to env var only if window is undefined (which shouldn't happen in this client handler).
+    const baseUrl = typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "");
 
     try {
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {

@@ -46,7 +46,8 @@ export async function middleware(request: NextRequest) {
   }
 
   // 4. Logged in users trying to access login/signup/etc -> /dashboard or /onboarding
-  if (user && isPublicAuthRoute) {
+  // EXCEPTION: /auth/update-password must be accessible to authenticated users during recovery flow.
+  if (user && isPublicAuthRoute && !request.nextUrl.pathname.startsWith("/auth/update-password")) {
     // We do a lightweight check for workspace via cookies if possible, or just let the page handle it.
     // For middleware, we'll redirect to /dashboard and let the dashboard force onboarding if needed.
     return NextResponse.redirect(new URL("/dashboard", request.url));

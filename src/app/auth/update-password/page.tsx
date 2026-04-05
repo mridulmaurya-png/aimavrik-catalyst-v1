@@ -12,8 +12,40 @@ export default function UpdatePasswordPage() {
   const router = useRouter();
   const [password, setPassword] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+  const [checkingSession, setCheckingSession] = React.useState(true);
   const [error, setError] = React.useState("");
   const [success, setSuccess] = React.useState(false);
+
+  React.useEffect(() => {
+    const supabase = createClient();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" || session) {
+        // Session established
+        setCheckingSession(false);
+        return;
+      }
+      
+      if (event === "INITIAL_SESSION" && !session) {
+        // No session on initial load, check if we're expecting a token
+        const searchParams = new URLSearchParams(window.location.search);
+        const hasCode = searchParams.has("code");
+        const hash = window.location.hash;
+        const hasHash = hash.includes("access_token") || hash.includes("type=recovery");
+
+        if (!hasCode && !hasHash) {
+          router.replace("/login?error=" + encodeURIComponent("Invalid or expired recovery session. Please request a new link."));
+        } else {
+          // Stay in checking state while SDK processes the code/hash
+          setCheckingSession(false);
+        }
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [router]);
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,12 +60,16 @@ export default function UpdatePasswordPage() {
 
       if (updateError) {
         console.error("Update error:", updateError);
-        setError(updateError.message);
+        // If it's a "token expired" or "invalid session" error, give a clear message
+        if (updateError.message.includes("expired") || updateError.message.includes("invalid")) {
+          setError("Your recovery link has expired or is no longer valid. Please request a new one.");
+        } else {
+          setError(updateError.message);
+        }
         setLoading(false);
       } else {
         setSuccess(true);
         setLoading(false);
-        // Optional: sign out and require fresh login, or just keep session
       }
     } catch (e: any) {
       console.error("Unexpected error:", e);
@@ -41,6 +77,17 @@ export default function UpdatePasswordPage() {
       setLoading(false);
     }
   };
+
+  if (checkingSession) {
+    return (
+      <div className="min-h-[100vh] bg-brand-bg-primary text-brand-text-primary flex flex-col items-center justify-center p-6">
+        <div className="flex flex-col items-center space-y-4 animate-pulse">
+           <div className="w-12 h-12 rounded-xl bg-brand-primary/20 animate-spin" />
+           <p className="text-body-sm text-brand-text-secondary font-medium">Verifying recovery session...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (success) {
     return (

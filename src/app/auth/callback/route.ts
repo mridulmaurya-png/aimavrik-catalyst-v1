@@ -5,8 +5,15 @@ import { NextResponse } from "next/server";
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
-  const next = requestUrl.searchParams.get("next");
-  const redirectTo = new URL(request.url);
+  const next = requestUrl.searchParams.get("next") || "/dashboard";
+  const error = requestUrl.searchParams.get("error");
+  const error_description = requestUrl.searchParams.get("error_description");
+
+  // 1. Check if Supabase sent an error in the query (e.g. expired link)
+  if (error || error_description) {
+    console.error("Auth callback error param:", error, error_description);
+    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error_description || "Verification link expired or invalid. Please try again.")}`, request.url));
+  }
 
   const cookieStore = await cookies();
   const supabase = createServerClient(
@@ -30,24 +37,27 @@ export async function GET(request: Request) {
     }
   );
 
+  // 2. Exchange code for session if present
   if (code) {
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) {
-      console.error("Auth callback exchange error:", error.message);
+    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+    if (exchangeError) {
+      console.error("Auth callback exchange error:", exchangeError.message);
       return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent("Verification link expired or invalid. Please try again.")}`, request.url));
     }
   }
 
-  // After exchange, check session status
+  // 3. After exchange (or if session already exists), get user
   const { data: { user } } = await supabase.auth.getUser();
 
   if (user) {
-    // 1. If 'next' is explicitly provided (Password Resets, Magic Links), prioritize it
-    if (next) {
-      return NextResponse.redirect(new URL(next, request.url));
+    // 4. Handle specific next destinations (like update-password)
+    if (next && next !== "/dashboard") {
+      // Basic safety: Ensure 'next' is a path, not a full malicious URL
+      const safeNext = next.startsWith('/') ? next : `/${next}`;
+      return NextResponse.redirect(new URL(safeNext, request.url));
     }
 
-    // 2. Default Lifecycle Routing (Signups)
+    // 5. Default Lifecycle Routing (Signups/Logins)
     const { data: membership } = await supabase
       .from("team_members")
       .select("business_id")
@@ -56,12 +66,14 @@ export async function GET(request: Request) {
       .maybeSingle();
 
     if (membership?.business_id) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+       return NextResponse.redirect(new URL("/dashboard", request.url));
     } else {
-      return NextResponse.redirect(new URL("/onboarding", request.url));
+       return NextResponse.redirect(new URL("/onboarding", request.url));
     }
   }
 
-  // Final Fallback
+  // 6. Fail-safe: No user session found and no code to exchange
+  // If we came here from a hash-token flow, the server wouldn't see it.
+  // We'll redirect to login. The client-side might still catch it if we were on a page.
   return NextResponse.redirect(new URL("/login", request.url));
 }
