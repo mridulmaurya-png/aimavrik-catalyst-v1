@@ -45,8 +45,8 @@ export default async function BillingPage() {
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-heading-3 font-bold text-brand-text-primary">$249.00</p>
-                <p className="text-[11px] text-brand-text-tertiary">per month · Renews Apr 01, 2026</p>
+                <p className="text-heading-3 font-bold text-brand-text-primary">—</p>
+                <p className="text-[11px] text-brand-text-tertiary">Billing not yet configured</p>
               </div>
             </div>
             

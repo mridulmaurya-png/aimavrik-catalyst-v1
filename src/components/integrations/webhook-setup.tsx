@@ -1,13 +1,17 @@
+"use client";
+
 import * as React from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Copy, Check, ShieldCheck, Zap, Info } from "lucide-react"
+import { Copy, Check, ShieldCheck, Zap, Info, ArrowRight } from "lucide-react"
 
-export function WebhookSetupPanel() {
+export function WebhookSetupPanel({ businessId }: { businessId?: string }) {
   const [copied, setCopied] = React.useState(false)
-  const webhookUrl = "https://api.catalyst.ai/v1/webhooks/wh_8f2k9a1z"
+  
+  // Build real webhook URL from the app's own ingest endpoint
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL || 'https://your-app.vercel.app';
+  const webhookUrl = `${baseUrl}/api/ingest/webhook`;
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(webhookUrl)
@@ -46,7 +50,7 @@ export function WebhookSetupPanel() {
 
       <div className="space-y-4 pt-4 border-t border-brand-border/50">
         <div className="space-y-2">
-          <label className="text-label-sm font-semibold text-brand-text-primary">Your Unique Webhook URL</label>
+          <label className="text-label-sm font-semibold text-brand-text-primary">Your Webhook URL</label>
           <div className="flex gap-2">
             <div className="flex-1 bg-brand-bg-primary border border-brand-border rounded-lg px-4 h-11 flex items-center font-mono text-body-sm text-brand-text-secondary overflow-hidden overflow-ellipsis whitespace-nowrap">
               {webhookUrl}
@@ -60,6 +64,11 @@ export function WebhookSetupPanel() {
               {copied ? 'Copied' : 'Copy'}
             </Button>
           </div>
+          {businessId && (
+            <p className="text-[10px] text-brand-text-tertiary font-mono">
+              Include header: <code className="bg-brand-bg-primary px-1.5 py-0.5 rounded border border-brand-border">x-business-id: {businessId}</code>
+            </p>
+          )}
         </div>
 
         <div className="space-y-3 pt-4">
@@ -70,41 +79,20 @@ export function WebhookSetupPanel() {
           <div className="rounded-xl bg-brand-bg-primary border border-brand-border p-4 font-mono text-[12px] leading-relaxed text-brand-text-secondary overflow-x-auto">
             <pre>
 {`{
-  "event_type": "checkout_completed",
-  "contact": {
-    "email": "alex@example.com",
-    "name": "Alex Rivera"
-  },
+  "business_id": "${businessId || 'your-business-id'}",
+  "event_type": "new_lead",
+  "email": "alex@example.com",
+  "full_name": "Alex Rivera",
+  "source": "webhook",
   "metadata": {
-    "amount": 1240,
-    "currency": "USD"
+    "utm_source": "google",
+    "landing_page": "/pricing"
   }
 }`}
             </pre>
           </div>
         </div>
-
-        <div className="pt-4 flex justify-end">
-          <Button variant="ghost" className="text-brand-primary hover:bg-brand-primary/5 h-10 gap-2">
-            Send Test Event
-            <ArrowRight className="w-4 h-4" />
-          </Button>
-        </div>
       </div>
     </Card>
-  )
-}
-
-function ArrowRight(props: any) {
-  return (
-    <svg 
-      {...props}
-      xmlns="http://www.w3.org/2000/svg" 
-      width="24" height="24" viewBox="0 0 24 24" 
-      fill="none" stroke="currentColor" strokeWidth="2" 
-      strokeLinecap="round" strokeLinejoin="round"
-    >
-      <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
-    </svg>
   )
 }

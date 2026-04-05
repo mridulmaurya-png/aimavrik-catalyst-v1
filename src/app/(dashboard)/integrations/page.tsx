@@ -5,7 +5,6 @@ import { ConnectorCategoryBlock } from "@/components/integrations/connector-cate
 import { Button } from "@/components/ui/button";
 import { requireWorkspace } from "@/lib/auth/context";
 import { createClient } from "@/lib/supabase/server";
-import { ShieldAlert } from "lucide-react";
 import { 
   Zap, 
   ShoppingCart, 
@@ -43,14 +42,17 @@ const CHANNELS = [
   { id: 'email', name: 'Email', icon: Mail },
 ];
 
-import { getSystemState } from "@/lib/system/state-model";
-
 export default async function IntegrationsPage() {
   const { businessId } = await requireWorkspace();
   const supabase = await createClient();
-  const systemState = await getSystemState();
 
-  // Fetch real event counts per source
+  // Fetch integrations directly — no getSystemState dependency
+  const { data: integrations } = await supabase
+    .from("integrations")
+    .select("id, provider, status, created_at")
+    .eq("business_id", businessId);
+
+  // Fetch event counts per source
   const { data: eventCounts } = await supabase
     .from("events")
     .select("source")
@@ -62,53 +64,41 @@ export default async function IntegrationsPage() {
     countBySource[src] = (countBySource[src] || 0) + 1;
   });
 
-  const CONNECTED = systemState.channels.map(chan => {
-    // Standardize lowercase for robust matching
-    const normalizedChan = chan?.toLowerCase() || '';
-    let provider = normalizedChan;
-    let statusLabel = 'active';
-    let lastSync = 'Awaiting Payload';
+  // Build connected systems from real integrations data
+  const CONNECTED = (integrations || []).map(int => {
+    const provider = int.provider || "unknown";
+    const normalizedProvider = provider.toLowerCase();
 
-    if (normalizedChan === 'webhook') {
-      provider = 'Custom Webhook';
+    let displayName = provider.charAt(0).toUpperCase() + provider.slice(1).replace(/_/g, ' ');
+    let statusLabel = int.status || 'active';
+    let lastSync = 'Connected';
+
+    if (normalizedProvider === 'webhook' || normalizedProvider === 'custom_webhook') {
+      displayName = 'Custom Webhook';
       lastSync = 'Listening';
-    } else if (normalizedChan === 'whatsapp') {
-      provider = 'WhatsApp (Demo Mode)';
+    } else if (normalizedProvider === 'csv_upload') {
+      displayName = 'CSV / Excel Import';
+      lastSync = 'Manual';
+    } else if (normalizedProvider === 'email') {
+      displayName = 'Email Engine';
+      lastSync = 'System Active';
+    } else if (normalizedProvider === 'whatsapp') {
+      displayName = 'WhatsApp';
       statusLabel = 'simulating';
-    } else if (normalizedChan === 'email') {
-      provider = 'Email Engine';
-      lastSync = 'System Sender Active';
-    } else if (normalizedChan) {
-      provider = normalizedChan.charAt(0).toUpperCase() + normalizedChan.slice(1).replace('_', ' ');
-    } else {
-      provider = 'Unknown System';
-      statusLabel = 'paused';
     }
 
-    // Get real event count for this source
-    const sourceKey = normalizedChan || 'system';
-    const realEventCount = countBySource[sourceKey] || countBySource[normalizedChan] || 0;
+    const realEventCount = countBySource[normalizedProvider] || 0;
 
     return {
-      provider,
+      provider: displayName,
       status: statusLabel,
       lastSync,
       eventCount: realEventCount.toString()
-    }
+    };
   });
 
-  // Unique by provider to avoid duplicate card keys
+  // Deduplicate
   const UNIQUE_CONNECTED = Array.from(new Map(CONNECTED.map(item => [item.provider, item])).values());
-
-  if (UNIQUE_CONNECTED.length === 0) {
-    // Failsafe for fully clean states
-    UNIQUE_CONNECTED.push({
-      provider: 'System',
-      status: 'active',
-      lastSync: 'Live',
-      eventCount: '0'
-    });
-  }
 
   return (
     <div className="space-y-12 pb-24">
@@ -119,27 +109,34 @@ export default async function IntegrationsPage() {
             Connect your funnel, CRM, website, payments, and communication channels.
           </p>
         </div>
-        <Button disabled className="gap-2 h-11 px-6 opacity-50 cursor-not-allowed" title="Direct integration adding enabled in production release">
+        <Button disabled className="gap-2 h-11 px-6 opacity-50 cursor-not-allowed" title="Direct integration adding coming soon">
           <Plus className="w-5 h-5" />
           Add integration
         </Button>
       </div>
 
-      <div className="space-y-6">
-        <h4 className="text-[11px] font-bold text-brand-text-tertiary uppercase tracking-widest pl-1">
-          Connected Systems
-        </h4>
-        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
-          {UNIQUE_CONNECTED.map((item) => (
-            <IntegrationCard 
-              key={item.provider}
-              {...item as any}
-            />
-          ))}
+      {UNIQUE_CONNECTED.length > 0 ? (
+        <div className="space-y-6">
+          <h4 className="text-[11px] font-bold text-brand-text-tertiary uppercase tracking-widest pl-1">
+            Connected Systems
+          </h4>
+          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
+            {UNIQUE_CONNECTED.map((item) => (
+              <IntegrationCard 
+                key={item.provider}
+                {...item as any}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="p-12 border border-dashed border-brand-border rounded-xl text-center space-y-2">
+          <p className="text-brand-text-tertiary text-body-sm">No integrations connected yet.</p>
+          <p className="text-[11px] text-brand-text-tertiary">Import contacts via CSV or configure a webhook below.</p>
+        </div>
+      )}
 
-      <WebhookSetupPanel />
+      <WebhookSetupPanel businessId={businessId} />
 
       <CSVUploadPanel />
 

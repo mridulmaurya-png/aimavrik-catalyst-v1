@@ -36,12 +36,6 @@ export function UsageProgressCard({ label, used, total, unit }: { label: string,
 }
 
 export function InvoiceTable() {
-  const invoices = [
-    { id: "INV-2026-003", date: "Mar 01, 2026", amount: "$249.00", status: "Paid" },
-    { id: "INV-2026-002", date: "Feb 01, 2026", amount: "$249.00", status: "Paid" },
-    { id: "INV-2026-001", date: "Jan 01, 2026", amount: "$249.00", status: "Paid" },
-  ];
-
   return (
     <div className="rounded-xl border border-brand-border bg-brand-bg-secondary overflow-hidden">
       <Table>
@@ -55,27 +49,11 @@ export function InvoiceTable() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {invoices.map((invoice) => (
-            <TableRow key={invoice.id} className="group">
-              <TableCell className="font-mono text-body-sm text-brand-text-secondary">{invoice.id}</TableCell>
-              <TableCell className="text-body-sm text-brand-text-secondary">{invoice.date}</TableCell>
-              <TableCell className="font-bold text-brand-text-primary">{invoice.amount}</TableCell>
-              <TableCell>
-                <Badge variant="success" className="bg-functional-success/10 text-functional-success border-none">
-                  {invoice.status}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-right">
-                <button 
-                  disabled 
-                  title="Historical invoices available in production"
-                  className="text-brand-text-tertiary opacity-40 cursor-not-allowed p-1"
-                >
-                  <Download className="w-4 h-4" />
-                </button>
-              </TableCell>
-            </TableRow>
-          ))}
+          <TableRow>
+            <TableCell colSpan={5} className="text-center py-8 text-brand-text-tertiary text-body-sm">
+              No invoices yet. Billing history will appear here once active.
+            </TableCell>
+          </TableRow>
         </TableBody>
       </Table>
     </div>

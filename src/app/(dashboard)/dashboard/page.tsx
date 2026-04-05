@@ -1,8 +1,6 @@
 import { KPICard } from "@/components/dashboard/kpi-card";
 import { PlaybookCard } from "@/components/dashboard/playbook-card";
 import { ExecutionFeed } from "@/components/dashboard/execution-feed";
-import { InsightCard } from "@/components/dashboard/insight-card";
-import { ExecutionHealth } from "@/components/dashboard/health-metrics";
 import { ExecutionTrigger } from "@/components/dashboard/execution-trigger";
 import { requireWorkspace } from "@/lib/auth/context";
 import { createClient } from "@/lib/supabase/server";
