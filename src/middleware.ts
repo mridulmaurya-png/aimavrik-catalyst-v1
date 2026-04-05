@@ -35,68 +35,25 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Root protection: Redirect logged-in users from / to /dashboard
+  const publicAuthRoutes = ["/login", "/signup", "/reset-password", "/auth/callback", "/auth/update-password"];
+  const isPublicAuthRoute = publicAuthRoutes.some(route => request.nextUrl.pathname.startsWith(route));
+
+  // 1. Logged in users trying to access login/signup/etc -> /dashboard
+  if (user && isPublicAuthRoute) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  // 2. Logged in users on root -> /dashboard
   if (user && request.nextUrl.pathname === "/") {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // Allow public auth routes without interference from dashboard protections
-  const publicAuthRoutes = ["/login", "/signup", "/reset-password", "/auth/callback", "/auth/update-password"];
-  if (publicAuthRoutes.some(route => request.nextUrl.pathname.startsWith(route))) {
-    // Optionally redirect logged-in users away from login/signup
-    if (user && (request.nextUrl.pathname === "/login" || request.nextUrl.pathname === "/signup")) {
-       return NextResponse.redirect(new URL("/dashboard", request.url));
-    }
-    return response;
-  }
-
-  // App protection for dashboard and functional routes
-  const protectedRoutes = ["/dashboard", "/contacts", "/playbooks", "/integrations", "/settings", "/billing", "/analytics", "/event-logs"];
+  // 3. Logged out users trying to access protected areas -> /login
+  const protectedRoutes = ["/dashboard", "/contacts", "/playbooks", "/integrations", "/settings", "/billing", "/analytics", "/event-logs", "/onboarding", "/ops"];
   const isProtectedRoute = protectedRoutes.some(route => request.nextUrl.pathname.startsWith(route));
 
-  if (isProtectedRoute || request.nextUrl.pathname.startsWith("/onboarding")) {
-    if (!user) {
-      return NextResponse.redirect(new URL("/login", request.url));
-    }
-
-    // Check if user has a business workspace for protected dashboard routes
-    const { data: membership } = await supabase
-      .from("team_members")
-      .select("business_id")
-      .eq("user_id", user.id)
-      .limit(1)
-      .maybeSingle();
-
-    const hasWorkspace = !!membership?.business_id;
-
-    if (!hasWorkspace && !request.nextUrl.pathname.startsWith("/onboarding")) {
-       return NextResponse.redirect(new URL("/onboarding", request.url));
-    }
-
-    if (hasWorkspace) {
-       // Evaluate precise onboarding completion barrier
-       const { data: completedLog } = await supabase
-         .from("audit_logs")
-         .select("id")
-         .eq("business_id", membership.business_id)
-         .eq("log_type", "ONBOARDING_COMPLETED")
-         .limit(1)
-         .maybeSingle();
-
-       const isOnboardingComplete = !!completedLog;
-
-       if (!isOnboardingComplete && !request.nextUrl.pathname.startsWith("/onboarding")) {
-          // Force back to onboarding if they haven't finished yet!
-          return NextResponse.redirect(new URL("/onboarding", request.url));
-       }
-
-       if (isOnboardingComplete && request.nextUrl.pathname.startsWith("/onboarding")) {
-          // Avoid letting finished users return to wizard
-          return NextResponse.redirect(new URL("/dashboard", request.url));
-       }
-    }
-
-    return response;
+  if (!user && isProtectedRoute) {
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   return response;

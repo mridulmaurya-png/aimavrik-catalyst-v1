@@ -24,7 +24,15 @@ export async function requireWorkspace() {
     .maybeSingle();
 
   if (error || !membership || !membership.business_id) {
-    redirect("/onboarding");
+    // If we're already on onboarding, don't redirect to it (prevents header-level loops)
+    return {
+      user,
+      businessId: null,
+      role: null,
+      business: null,
+      currencyCode: 'INR',
+      businessStatus: 'onboarding_not_started'
+    };
   }
 
   const biz = Array.isArray(membership.businesses) ? membership.businesses[0] : membership.businesses;

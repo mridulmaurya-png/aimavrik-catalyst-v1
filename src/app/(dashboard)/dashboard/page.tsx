@@ -18,6 +18,19 @@ export default async function DashboardPage() {
   const { businessId, currencyCode, businessStatus } = await requireWorkspace();
   const supabase = await createClient();
 
+  // If no workspace yet, force requirements form
+  if (!businessId) {
+    return (
+      <div className="max-w-4xl mx-auto py-12 space-y-8">
+        <div className="text-center space-y-2">
+            <h1 className="text-display-l font-bold tracking-tight">Welcome to AiMavrik</h1>
+            <p className="text-body-lg text-brand-text-secondary">Let's initialize your managed AI revenue architecture.</p>
+        </div>
+        <OnboardingForm />
+      </div>
+    );
+  }
+
   // Fetch Business Data
   const { data: business } = await supabase
     .from("businesses")
@@ -25,7 +38,7 @@ export default async function DashboardPage() {
     .eq("id", businessId)
     .single();
 
-  const status = business?.status || "signup_received";
+  const status = business?.status || businessStatus || "signup_received";
 
   // Data Fetching logic (Restored)
   const [contactsCount, messagesCount, queuedCount, failedCount, eventsCount, allPlaybooks, recentEvents, recentActions, interventionQueue] = await Promise.all([
