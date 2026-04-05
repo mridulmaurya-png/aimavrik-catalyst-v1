@@ -134,7 +134,28 @@ export function CSVUploadPanel() {
           </div>
           <div className="text-center space-y-2">
             <p className="text-body-sm font-bold text-brand-text-primary">Upload your lead list</p>
-            <p className="text-[11px] text-brand-text-tertiary max-w-[280px]">CSV recommended. Max 500 records per batch for managed processing speed.</p>
+            <p className="text-[11px] text-brand-text-tertiary">CSV recommended. Max 500 records per batch for managed processing speed.</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              className="h-9 px-4 gap-2 text-[11px] font-bold uppercase tracking-widest border-brand-border/60"
+              onClick={() => {
+                const headers = ["full_name", "email", "phone", "stage", "source", "total_revenue"];
+                const sampleData = ["John Doe,john@example.com,+123456789,new,manual,0"];
+                const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + sampleData.join("\n");
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", "catalyst_import_sample.csv");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }}
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              Download Sample CSV
+            </Button>
           </div>
           <input
             ref={fileInputRef}
