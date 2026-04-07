@@ -116,7 +116,6 @@ export async function updateIntegration(
     webhook_url?: string;
     api_base_url?: string;
     external_account_id?: string;
-    health?: string;
   }
 ) {
   await requireAdmin();
