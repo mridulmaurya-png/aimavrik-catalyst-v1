@@ -70,9 +70,14 @@ export async function addIntegration(
     status: string;
     notes?: string;
     config_json?: Record<string, any>;
+    execution_mode?: string;
+    connection_reference?: string;
+    webhook_url?: string;
+    api_base_url?: string;
+    external_account_id?: string;
   }
 ) {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const supabase = await createClient();
 
   const { error } = await supabase.from("client_integrations").insert({
@@ -82,6 +87,12 @@ export async function addIntegration(
     status: data.status,
     notes: data.notes || null,
     config_json: data.config_json || {},
+    execution_mode: data.execution_mode || "internal",
+    connection_reference: data.connection_reference || null,
+    webhook_url: data.webhook_url || null,
+    api_base_url: data.api_base_url || null,
+    external_account_id: data.external_account_id || null,
+    configured_by: admin.email,
     connected_at: data.status === "connected" ? new Date().toISOString() : null,
   });
 
@@ -100,6 +111,12 @@ export async function updateIntegration(
     notes?: string;
     provider?: string;
     last_sync_at?: string;
+    execution_mode?: string;
+    connection_reference?: string;
+    webhook_url?: string;
+    api_base_url?: string;
+    external_account_id?: string;
+    health?: string;
   }
 ) {
   await requireAdmin();
@@ -114,6 +131,11 @@ export async function updateIntegration(
   if (data.notes !== undefined) payload.notes = data.notes;
   if (data.provider !== undefined) payload.provider = data.provider;
   if (data.last_sync_at !== undefined) payload.last_sync_at = data.last_sync_at;
+  if (data.execution_mode !== undefined) payload.execution_mode = data.execution_mode;
+  if (data.connection_reference !== undefined) payload.connection_reference = data.connection_reference;
+  if (data.webhook_url !== undefined) payload.webhook_url = data.webhook_url;
+  if (data.api_base_url !== undefined) payload.api_base_url = data.api_base_url;
+  if (data.external_account_id !== undefined) payload.external_account_id = data.external_account_id;
 
   const { error } = await supabase
     .from("client_integrations")
@@ -137,6 +159,67 @@ export async function deleteIntegration(integrationId: string, businessId: strin
   return { success: true };
 }
 
+export async function testIntegrationConnection(integrationId: string, businessId: string) {
+  await requireAdmin();
+  const supabase = await createClient();
+
+  // Get integration details
+  const { data: integ } = await supabase
+    .from("client_integrations")
+    .select("*")
+    .eq("id", integrationId)
+    .single();
+
+  if (!integ) throw new Error("Integration not found");
+
+  let result: { status: "healthy" | "degraded" | "critical" | "unknown", message: string } = { status: "unknown", message: "No test logic for this provider yet." };
+
+  if (integ.integration_type === "email" && integ.provider === "Resend") {
+    // Basic config presence check
+    const { data: biz } = await supabase.from("business_settings").select("config_json").eq("business_id", businessId).single();
+    const config = biz?.config_json as any || {};
+    if (config.resend_api_key && config.resend_from_email) {
+      result = { status: "healthy", message: "Resend configuration found." };
+    } else {
+      result = { status: "critical", message: "Resend API Key or From Email missing in settings." };
+    }
+  } else if (integ.integration_type === "n8n" || integ.execution_mode === "n8n") {
+    const url = integ.webhook_url || (integ.api_base_url as string);
+    if (url) {
+      try {
+        const res = await fetch(url, { method: "HEAD" }).catch(() => null);
+        if (res) {
+          result = { status: "healthy", message: "n8n endpoint is reachable." };
+        } else {
+          result = { status: "degraded", message: "n8n endpoint did not respond to ping." };
+        }
+      } catch (e) {
+        result = { status: "critical", message: "Network error reaching n8n." };
+      }
+    } else {
+      result = { status: "critical", message: "No URL configured for n8n integration." };
+    }
+  } else if (integ.integration_type === "whatsapp") {
+    const { data: biz } = await supabase.from("business_settings").select("config_json").eq("business_id", businessId).single();
+    const config = biz?.config_json as any || {};
+    if (config.whatsapp_api_key && config.whatsapp_sender_id) {
+      result = { status: "healthy", message: "WhatsApp configuration found." };
+    } else {
+      result = { status: "critical", message: "WhatsApp API Key or Sender ID missing." };
+    }
+  }
+
+  // Update integration table with test result
+  await supabase.from("client_integrations").update({
+    health: result.status,
+    last_tested_at: new Date().toISOString(),
+    last_test_result: result.message
+  } as any).eq("id", integrationId);
+
+  revalidatePath(`/ops/workspaces/${businessId}`);
+  return result;
+}
+
 // ═══════════════════════════════════════════════════
 // AUTOMATION ACTIONS
 // ═══════════════════════════════════════════════════
@@ -149,6 +232,12 @@ export async function addAutomation(
     trigger_description?: string;
     mode?: string;
     notes?: string;
+    trigger_event?: string;
+    execution_engine?: string;
+    webhook_url?: string;
+    workflow_id?: string;
+    output_channel?: string;
+    fallback_action?: string;
   }
 ) {
   await requireAdmin();
@@ -159,7 +248,14 @@ export async function addAutomation(
     automation_name: data.automation_name,
     automation_type: data.automation_type,
     trigger_description: data.trigger_description || null,
+    trigger_event: data.trigger_event || null,
+    execution_engine: data.execution_engine || "internal",
+    webhook_url: data.webhook_url || null,
+    workflow_id: data.workflow_id || null,
+    output_channel: data.output_channel || "internal",
+    fallback_action: data.fallback_action || null,
     mode: data.mode || "test",
+    status: "draft",
     is_active: false,
     notes: data.notes || null,
   });
@@ -181,6 +277,13 @@ export async function updateAutomation(
     approved_by?: string;
     approved_at?: string;
     last_result?: string;
+    status?: string;
+    trigger_event?: string;
+    execution_engine?: string;
+    webhook_url?: string;
+    workflow_id?: string;
+    output_channel?: string;
+    fallback_action?: string;
   }
 ) {
   const admin = await requireAdmin();
@@ -192,11 +295,25 @@ export async function updateAutomation(
   if (data.health !== undefined) payload.health = data.health;
   if (data.notes !== undefined) payload.notes = data.notes;
   if (data.last_result !== undefined) payload.last_result = data.last_result;
+  if (data.status !== undefined) payload.status = data.status;
+  if (data.trigger_event !== undefined) payload.trigger_event = data.trigger_event;
+  if (data.execution_engine !== undefined) payload.execution_engine = data.execution_engine;
+  if (data.webhook_url !== undefined) payload.webhook_url = data.webhook_url;
+  if (data.workflow_id !== undefined) payload.workflow_id = data.workflow_id;
+  if (data.output_channel !== undefined) payload.output_channel = data.output_channel;
+  if (data.fallback_action !== undefined) payload.fallback_action = data.fallback_action;
   
-  // Auto-set approval when activating
-  if (data.is_active === true) {
+  // Auto-set approval/activation timestamps
+  if (data.status === 'approved') {
     payload.approved_by = admin.email;
     payload.approved_at = new Date().toISOString();
+  }
+  if (data.status === 'active') {
+    payload.activated_at = new Date().toISOString();
+    payload.is_active = true;
+  }
+  if (data.status === 'paused' || data.status === 'blocked') {
+    payload.is_active = false;
   }
 
   const { error } = await supabase

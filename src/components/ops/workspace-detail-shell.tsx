@@ -22,6 +22,7 @@ import {
   addIntegration,
   updateIntegration,
   deleteIntegration,
+  testIntegrationConnection,
   addAutomation,
   updateAutomation,
   deleteAutomation,
@@ -50,6 +51,9 @@ import {
   Radio,
   Clock,
   Shield,
+  ShieldCheck,
+  AlertTriangle,
+  Link as LinkIcon,
 } from "lucide-react";
 
 interface WorkspaceDetailData {
@@ -291,15 +295,29 @@ function OverviewTab({ biz, submission, config, health, integrations, automation
       <Card variant="elevated" className="p-6 space-y-4">
         <div className="flex items-center gap-2">
           <Shield className="w-4 h-4 text-brand-primary" />
-          <h3 className="text-[11px] font-bold uppercase tracking-widest text-brand-text-tertiary">Setup State</h3>
+          <h3 className="text-[11px] font-bold uppercase tracking-widest text-brand-text-tertiary">Activation Readiness</h3>
         </div>
         <div className="space-y-3">
-          <ReadinessRow label="Onboarding" ready={!!submission} />
-          <ReadinessRow label="Email (Resend)" ready={!!(config.resend_api_key && config.resend_from_email)} />
-          <ReadinessRow label="WhatsApp" ready={!!(config.whatsapp_api_key && config.whatsapp_sender_id)} />
-          <ReadinessRow label="Execution Engine" ready={!!config.execution_mode} detail={config.execution_mode || "not set"} />
-          <ReadinessRow label="Has Contacts" ready={health.contactsCount > 0} detail={`${health.contactsCount}`} />
-          <ReadinessRow label="Has Active Playbooks" ready={playbooks.some((p: any) => p.is_active)} />
+          <ReadinessRow label="Onboarding Submitted" ready={!!submission} />
+          <ReadinessRow label="Email Configured" ready={!!(config.resend_api_key && config.resend_from_email)} />
+          <ReadinessRow label="WhatsApp Configured" ready={!!(config.whatsapp_api_key && config.whatsapp_sender_id)} />
+          <ReadinessRow label="Integrations Connected" ready={integrations.some((i: any) => i.status === "connected")} detail={`${integrations.filter((i: any) => i.status === "connected").length} connected`} />
+          <ReadinessRow label="Automations Approved" ready={automations.some((a: any) => a.status === 'approved' || a.status === 'active')} detail={`${automations.filter((a: any) => a.status === 'approved' || a.status === 'active').length} ready`} />
+          <ReadinessRow label="Execution Map Linked" ready={automations.some((a: any) => a.webhook_url || a.workflow_id)} />
+          
+          <div className="pt-4 border-t border-brand-border/30">
+            {submission && integrations.some((i: any) => i.status === "connected") && automations.some((a: any) => a.status === 'approved' || a.status === 'active') ? (
+              <div className="flex items-center gap-2 text-functional-success">
+                <ShieldCheck className="w-4 h-4" />
+                <span className="text-[10px] font-bold uppercase tracking-wider">Ready for Activation</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-brand-text-tertiary">
+                <AlertTriangle className="w-4 h-4" />
+                <span className="text-[10px] font-bold uppercase tracking-wider">Blocked — Missing Critical Config</span>
+              </div>
+            )}
+          </div>
         </div>
       </Card>
     </div>
@@ -318,6 +336,9 @@ function IntegrationsTab({ integrations, businessId }: { integrations: any[]; bu
   const [newProvider, setNewProvider] = React.useState("");
   const [newStatus, setNewStatus] = React.useState("configured");
   const [newNotes, setNewNotes] = React.useState("");
+  const [newMode, setNewMode] = React.useState("internal");
+  const [newWebhook, setNewWebhook] = React.useState("");
+  const [newRef, setNewRef] = React.useState("");
 
   const handleAdd = async () => {
     if (!newProvider) return alert("Provider is required");
@@ -328,10 +349,15 @@ function IntegrationsTab({ integrations, businessId }: { integrations: any[]; bu
         provider: newProvider,
         status: newStatus,
         notes: newNotes || undefined,
+        execution_mode: newMode,
+        webhook_url: newWebhook || undefined,
+        connection_reference: newRef || undefined,
       });
       setShowAdd(false);
       setNewProvider("");
       setNewNotes("");
+      setNewWebhook("");
+      setNewRef("");
       router.refresh();
     } catch (e: any) {
       alert(e.message);
@@ -409,6 +435,24 @@ function IntegrationsTab({ integrations, businessId }: { integrations: any[]; bu
               <input value={newNotes} onChange={e => setNewNotes(e.target.value)} className="input-base h-10 text-body-sm" placeholder="Optional notes" />
             </div>
           </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Execution Mode</label>
+              <select value={newMode} onChange={e => setNewMode(e.target.value)} className="input-base h-10 text-body-sm">
+                <option value="internal">Internal</option>
+                <option value="n8n">n8n Workflow</option>
+                <option value="external_api">External API</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Webhook / API URL</label>
+              <input value={newWebhook} onChange={e => setNewWebhook(e.target.value)} className="input-base h-10 text-body-sm" placeholder="https://…" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">System Reference (ID)</label>
+              <input value={newRef} onChange={e => setNewRef(e.target.value)} className="input-base h-10 text-body-sm" placeholder="Account ID or Ref" />
+            </div>
+          </div>
           <div className="flex gap-2">
             <Button variant="primary" className="h-9 text-body-sm" onClick={handleAdd} disabled={loading}>
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
@@ -445,16 +489,41 @@ function IntegrationsTab({ integrations, businessId }: { integrations: any[]; bu
                   <Badge variant={integ.status === "connected" ? "success" : integ.status === "error" ? "error" : "neutral"}>
                     {integ.status}
                   </Badge>
+                  <div className="text-[9px] text-brand-text-tertiary mt-1 uppercase font-bold">{integ.execution_mode}</div>
                 </td>
                 <td className="px-5 py-3">
                   <Badge variant={getHealthColor(integ.health)}>{integ.health || "unknown"}</Badge>
+                  {integ.last_tested_at && (
+                    <div className="text-[9px] text-brand-text-tertiary mt-1">Tested: {new Date(integ.last_tested_at).toLocaleDateString()}</div>
+                  )}
                 </td>
                 <td className="px-5 py-3 text-[11px] text-brand-text-tertiary">
                   {integ.connected_at ? new Date(integ.connected_at).toLocaleDateString() : "—"}
                 </td>
-                <td className="px-5 py-3 text-[11px] text-brand-text-tertiary max-w-[200px] truncate">{integ.notes || "—"}</td>
+                <td className="px-5 py-3 text-[11px] text-brand-text-tertiary max-w-[200px] truncate">
+                  {integ.notes || "—"}
+                  {integ.webhook_url && <div className="text-[9px] opacity-60 mt-1 truncate">{integ.webhook_url}</div>}
+                </td>
                 <td className="px-5 py-3">
                   <div className="flex gap-1">
+                    <button 
+                      onClick={async () => {
+                        setLoading(true);
+                        try {
+                          const res = await testIntegrationConnection(integ.id, businessId);
+                          alert(`${res.status.toUpperCase()}: ${res.message}`);
+                          router.refresh();
+                        } catch (e: any) {
+                          alert(e.message);
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      className="p-1.5 rounded hover:bg-brand-primary/10 text-brand-text-tertiary hover:text-brand-primary" 
+                      title="Test Connection"
+                    >
+                      <Activity className="w-3.5 h-3.5" />
+                    </button>
                     {integ.status !== "connected" && (
                       <button onClick={() => handleStatusToggle(integ, "connected")} className="p-1.5 rounded hover:bg-functional-success/10 text-functional-success" title="Mark Connected">
                         <Check className="w-3.5 h-3.5" />
@@ -487,7 +556,18 @@ function AutomationsTab({ automations, businessId }: { automations: any[]; busin
   const router = useRouter();
   const [showAdd, setShowAdd] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
-  const [form, setForm] = React.useState({ name: "", type: "lead_scoring", trigger: "", mode: "test", notes: "" });
+  const [form, setForm] = React.useState({ 
+    name: "", 
+    type: "lead_scoring", 
+    trigger: "", 
+    mode: "test", 
+    notes: "",
+    engine: "internal",
+    channel: "internal",
+    trigger_event: "lead_submitted",
+    webhook_url: "",
+    workflow_id: "",
+  });
 
   const handleAdd = async () => {
     if (!form.name) return alert("Automation name is required");
@@ -499,9 +579,14 @@ function AutomationsTab({ automations, businessId }: { automations: any[]; busin
         trigger_description: form.trigger || undefined,
         mode: form.mode,
         notes: form.notes || undefined,
+        execution_engine: form.engine,
+        output_channel: form.channel,
+        trigger_event: form.trigger_event,
+        webhook_url: form.webhook_url || undefined,
+        workflow_id: form.workflow_id || undefined,
       });
       setShowAdd(false);
-      setForm({ name: "", type: "lead_scoring", trigger: "", mode: "test", notes: "" });
+      setForm({ name: "", type: "lead_scoring", trigger: "", mode: "test", notes: "", engine: "internal", channel: "internal", trigger_event: "lead_submitted", webhook_url: "", workflow_id: "" });
       router.refresh();
     } catch (e: any) {
       alert(e.message);
@@ -578,6 +663,39 @@ function AutomationsTab({ automations, businessId }: { automations: any[]; busin
               </select>
             </div>
           </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Exec Engine</label>
+              <select value={form.engine} onChange={e => setForm(f => ({ ...f, engine: e.target.value }))} className="input-base h-10 text-body-sm">
+                <option value="internal">Internal</option>
+                <option value="n8n">n8n Workflow</option>
+                <option value="external_webhook">Ext Webhook</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Output Channel</label>
+              <select value={form.channel} onChange={e => setForm(f => ({ ...f, channel: e.target.value }))} className="input-base h-10 text-body-sm">
+                <option value="internal">Internal</option>
+                <option value="email">Email</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="voice">Voice</option>
+                <option value="chatbot">Chatbot</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Trigger Event</label>
+              <select value={form.trigger_event} onChange={e => setForm(f => ({ ...f, trigger_event: e.target.value }))} className="input-base h-10 text-body-sm">
+                <option value="lead_submitted">Lead Submitted</option>
+                <option value="no_response_24h">No Response 24h</option>
+                <option value="payment_failed">Payment Failed</option>
+                <option value="manual_trigger">Manual</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Workflow / Webhook URL</label>
+              <input value={form.webhook_url} onChange={e => setForm(f => ({ ...f, webhook_url: e.target.value }))} className="input-base h-10 text-body-sm" placeholder="URL or ID" />
+            </div>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Trigger</label>
@@ -606,9 +724,9 @@ function AutomationsTab({ automations, businessId }: { automations: any[]; busin
               <th className="h-10 px-5 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Type</th>
               <th className="h-10 px-5 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Active</th>
               <th className="h-10 px-5 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Mode</th>
-              <th className="h-10 px-5 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Approved By</th>
+              <th className="h-10 px-5 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Status</th>
+              <th className="h-10 px-5 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Engine/Map</th>
               <th className="h-10 px-5 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Last Run</th>
-              <th className="h-10 px-5 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Health</th>
               <th className="h-10 px-5 w-28"></th>
             </tr>
           </thead>
@@ -624,35 +742,51 @@ function AutomationsTab({ automations, businessId }: { automations: any[]; busin
                 </td>
                 <td className="px-5 py-3 text-body-sm text-brand-text-secondary">{getAutomationLabel(auto.automation_type)}</td>
                 <td className="px-5 py-3">
-                  <button 
-                    onClick={() => handleToggle(auto)}
-                    className={`w-10 h-5 rounded-full transition-colors relative ${auto.is_active ? "bg-functional-success" : "bg-brand-border"}`}
-                    disabled={loading}
-                  >
-                    <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${auto.is_active ? "translate-x-5" : "translate-x-0.5"}`} />
-                  </button>
-                </td>
-                <td className="px-5 py-3">
                   <select 
-                    value={auto.mode || "test"} 
-                    onChange={e => handleModeSwitch(auto, e.target.value)} 
-                    className="bg-transparent border border-brand-border/30 rounded px-2 py-1 text-[11px] text-brand-text-secondary"
+                    value={auto.status || "draft"} 
+                    onChange={e => handleStatusChange(auto, e.target.value)} 
+                    className={`bg-transparent border border-brand-border/30 rounded px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                      auto.status === 'active' ? 'text-functional-success' : 
+                      auto.status === 'approved' ? 'text-brand-primary' : 
+                      'text-brand-text-tertiary'
+                    }`}
                     disabled={loading}
                   >
-                    <option value="test">Test</option>
-                    <option value="live">Live</option>
+                    <option value="draft">Draft</option>
+                    <option value="review">Review</option>
+                    <option value="approved">Approved</option>
+                    <option value="active">Active</option>
+                    <option value="paused">Paused</option>
+                    <option value="blocked">Blocked</option>
                   </select>
                 </td>
-                <td className="px-5 py-3 text-[11px] text-brand-text-tertiary">{auto.approved_by || "—"}</td>
+                <td className="px-5 py-3 text-[11px] text-brand-text-secondary">
+                  <div className="flex flex-col">
+                    <span className="font-bold flex items-center gap-1">
+                      <LinkIcon className="w-3 h-3 text-brand-primary" />
+                      {auto.execution_engine}
+                    </span>
+                    <span className="text-[9px] opacity-60 truncate max-w-[120px]">{auto.webhook_url || auto.workflow_id || 'no link'}</span>
+                  </div>
+                </td>
                 <td className="px-5 py-3 text-[11px] text-brand-text-tertiary">
                   {auto.last_run_at ? new Date(auto.last_run_at).toLocaleString() : "Never"}
-                  {auto.last_result && <span className="ml-1 opacity-60">({auto.last_result})</span>}
+                  {auto.last_result && <span className={`ml-1 ${auto.last_result === 'success' ? 'text-functional-success' : 'text-functional-error'}`}>({auto.last_result})</span>}
                 </td>
-                <td className="px-5 py-3"><Badge variant={getHealthColor(auto.health)}>{auto.health || "unknown"}</Badge></td>
                 <td className="px-5 py-3">
-                  <button onClick={() => handleDelete(auto.id)} className="p-1.5 rounded hover:bg-functional-error/10 text-functional-error" title="Delete">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => handleToggle(auto)}
+                      className={`w-8 h-4 rounded-full transition-colors relative ${auto.is_active ? "bg-functional-success" : "bg-brand-border"}`}
+                      disabled={loading}
+                      title="Quick Toggle"
+                    >
+                      <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${auto.is_active ? "translate-x-4" : "translate-x-0.5"}`} />
+                    </button>
+                    <button onClick={() => handleDelete(auto.id)} className="p-1 rounded hover:bg-functional-error/10 text-functional-error" title="Delete">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

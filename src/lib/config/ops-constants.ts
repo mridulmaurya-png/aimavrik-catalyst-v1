@@ -126,6 +126,15 @@ export type AutomationType = typeof AUTOMATION_TYPES[number];
 export const AUTOMATION_MODES = ["test", "live"] as const;
 export type AutomationMode = typeof AUTOMATION_MODES[number];
 
+export const AUTOMATION_STATUSES = ["draft", "review", "approved", "active", "paused", "blocked"] as const;
+export type AutomationStatus = typeof AUTOMATION_STATUSES[number];
+
+export const EXECUTION_ENGINES = ["internal", "n8n", "external_webhook"] as const;
+export type ExecutionEngine = typeof EXECUTION_ENGINES[number];
+
+export const OUTPUT_CHANNELS = ["email", "whatsapp", "voice", "chatbot", "internal"] as const;
+export type OutputChannel = typeof OUTPUT_CHANNELS[number];
+
 export function getAutomationLabel(type: string): string {
   const map: Record<string, string> = {
     lead_scoring: "Lead Scoring",
@@ -137,6 +146,17 @@ export function getAutomationLabel(type: string): string {
     custom_playbook: "Custom Playbook",
   };
   return map[type] || type;
+}
+
+export function getStatusColor(status: string): "success" | "warning" | "error" | "info" | "neutral" {
+  switch (status) {
+    case "active": return "success";
+    case "approved": return "info";
+    case "review": return "warning";
+    case "paused": return "warning";
+    case "blocked": return "error";
+    default: return "neutral";
+  }
 }
 
 // ═══════════════════════════════════════════════════
