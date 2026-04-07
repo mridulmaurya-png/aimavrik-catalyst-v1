@@ -619,6 +619,18 @@ function AutomationsTab({ automations, businessId }: { automations: any[]; busin
     }
   };
 
+  const handleStatusChange = async (auto: any, newStatus: string) => {
+    setLoading(true);
+    try {
+      await updateAutomation(auto.id, businessId, { status: newStatus });
+      router.refresh();
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this automation record?")) return;
     setLoading(true);
