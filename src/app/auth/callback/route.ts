@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { isAdminEmail } from "@/lib/auth/admin";
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
@@ -50,14 +51,25 @@ export async function GET(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (user) {
-    // 4. Handle specific next destinations (like update-password)
+    // 4. Priority: Password reset / Next parameter
+    if (next && (next.includes("update-password") || next.includes("reset-password"))) {
+       const safeNext = next.startsWith('/') ? next : `/${next}`;
+       return NextResponse.redirect(new URL(safeNext, request.url));
+    }
+
+    // 5. Admin Detection -> /ops/workspaces
+    if (isAdminEmail(user.email)) {
+       return NextResponse.redirect(new URL("/ops/workspaces", request.url));
+    }
+
+    // 6. Handle specific next destinations (like update-password) - generic safety
     if (next && next !== "/dashboard") {
       // Basic safety: Ensure 'next' is a path, not a full malicious URL
       const safeNext = next.startsWith('/') ? next : `/${next}`;
       return NextResponse.redirect(new URL(safeNext, request.url));
     }
 
-    // 5. Default Lifecycle Routing (Signups/Logins)
+    // 7. Default Lifecycle Routing (Signups/Logins)
     const { data: membership } = await supabase
       .from("team_members")
       .select("business_id")
@@ -72,8 +84,6 @@ export async function GET(request: Request) {
     }
   }
 
-  // 6. Fail-safe: No user session found and no code to exchange
-  // If we came here from a hash-token flow, the server wouldn't see it.
-  // We'll redirect to login. The client-side might still catch it if we were on a page.
+  // 8. Fail-safe: No user session found and no code to exchange
   return NextResponse.redirect(new URL("/login", request.url));
 }

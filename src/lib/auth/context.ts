@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { isAdminEmail } from "./admin";
 
 export async function requireUser() {
   const supabase = await createClient();
@@ -14,6 +15,12 @@ export async function requireUser() {
 
 export async function requireWorkspace() {
   const user = await requireUser();
+  
+  // 1. Admin Bypass
+  if (isAdminEmail(user.email)) {
+    redirect("/ops/workspaces");
+  }
+
   const supabase = await createClient();
   
   const { data: membership, error } = await supabase
@@ -24,7 +31,6 @@ export async function requireWorkspace() {
     .maybeSingle();
 
   if (error || !membership || !membership.business_id) {
-    // If we're already on onboarding, don't redirect to it (prevents header-level loops)
     return {
       user,
       businessId: null,
@@ -47,17 +53,10 @@ export async function requireWorkspace() {
   };
 }
 
-/**
- * Strict internal access gate for AiMavrik Ops.
- * Uses ADMIN_EMAILS environment variable for authorization.
- */
 export async function requireAdmin() {
   const user = await requireUser();
-  const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
   
-  const isInternal = user.email && adminEmails.includes(user.email.toLowerCase());
-  
-  if (!isInternal) {
+  if (!isAdminEmail(user.email)) {
     console.warn(`[AUTH] Unauthorized ops access attempt by ${user.email}`);
     redirect("/dashboard");
   }

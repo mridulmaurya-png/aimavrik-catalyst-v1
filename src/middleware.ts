@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isAdminEmail } from "@/lib/auth/admin";
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -35,27 +36,54 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const protectedRoutes = ["/dashboard", "/contacts", "/playbooks", "/integrations", "/settings", "/billing", "/analytics", "/event-logs", "/onboarding", "/ops"];
-  const isProtectedRoute = protectedRoutes.some(route => request.nextUrl.pathname.startsWith(route));
+  const adminProtectedRoutes = ["/ops"];
+  const tenantProtectedRoutes = [
+    "/dashboard", 
+    "/contacts", 
+    "/segments", 
+    "/playbooks", 
+    "/campaigns", 
+    "/integrations", 
+    "/analytics", 
+    "/billing", 
+    "/settings", 
+    "/event-logs", 
+    "/onboarding"
+  ];
+  
+  const isAdminPath = adminProtectedRoutes.some(route => request.nextUrl.pathname.startsWith(route));
+  const isTenantPath = tenantProtectedRoutes.some(route => request.nextUrl.pathname.startsWith(route));
+  const isProtectedRoute = isAdminPath || isTenantPath;
 
   const publicAuthRoutes = ["/login", "/signup", "/reset-password", "/auth/callback", "/auth/update-password"];
   const isPublicAuthRoute = publicAuthRoutes.some(route => request.nextUrl.pathname.startsWith(route));
 
+  // 1. Not logged in -> Redirect to login
   if (!user && isProtectedRoute) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // 4. Logged in users trying to access login/signup/etc -> /dashboard or /onboarding
-  // EXCEPTION: /auth/update-password must be accessible to authenticated users during recovery flow.
-  if (user && isPublicAuthRoute && !request.nextUrl.pathname.startsWith("/auth/update-password")) {
-    // We do a lightweight check for workspace via cookies if possible, or just let the page handle it.
-    // For middleware, we'll redirect to /dashboard and let the dashboard force onboarding if needed.
-    return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
+  // 2. Logged in logic
+  if (user) {
+    const isAdmin = isAdminEmail(user.email);
 
-  // 5. Logged in users on root -> /dashboard
-  if (user && request.nextUrl.pathname === "/") {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    // 2a. Admin accessing tenant routes OR root -> Redirect to /ops/workspaces
+    if (isAdmin) {
+      if (isTenantPath || request.nextUrl.pathname === "/" || (isPublicAuthRoute && !request.nextUrl.pathname.startsWith("/auth/update-password"))) {
+        return NextResponse.redirect(new URL("/ops/workspaces", request.url));
+      }
+    } 
+    // 2b. Non-admin accessing admin routes -> Redirect to /dashboard
+    else {
+      if (isAdminPath) {
+        return NextResponse.redirect(new URL("/dashboard", request.url));
+      }
+      
+      // 2c. Non-admin on public auth routes (except update-password) or root -> Redirect to /dashboard
+      if (request.nextUrl.pathname === "/" || (isPublicAuthRoute && !request.nextUrl.pathname.startsWith("/auth/update-password"))) {
+        return NextResponse.redirect(new URL("/dashboard", request.url));
+      }
+    }
   }
 
   return response;

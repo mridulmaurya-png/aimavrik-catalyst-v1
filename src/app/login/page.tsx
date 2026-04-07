@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { isAdminEmail } from "@/lib/auth/admin";
 
 function LoginContent() {
   const router = useRouter();
@@ -37,7 +38,13 @@ function LoginContent() {
       }
 
       if (data?.user) {
-        // Check for workspace
+        // 1. Admin Detection
+        if (isAdminEmail(data.user.email)) {
+          window.location.href = "/ops/workspaces";
+          return;
+        }
+
+        // 2. Client Workspace Detection
         const { data: membership, error: memberError } = await supabase
           .from("team_members")
           .select("business_id")
