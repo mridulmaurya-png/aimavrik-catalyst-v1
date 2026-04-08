@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth/context";
 import { revalidatePath } from "next/cache";
 import type { WorkspaceLifecycleStatus } from "@/lib/config/ops-constants";
@@ -15,7 +15,7 @@ export async function updateWorkspaceLifecycle(
   reason?: string
 ) {
   const admin = await requireAdmin();
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
 
   // Get current status for history
   const { data: current } = await supabase
@@ -78,7 +78,7 @@ export async function addIntegration(
   }
 ) {
   const admin = await requireAdmin();
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
 
   const { error } = await supabase.from("client_integrations").insert({
     business_id: businessId,
@@ -119,7 +119,7 @@ export async function updateIntegration(
   }
 ) {
   await requireAdmin();
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
 
   const payload: Record<string, any> = { updated_at: new Date().toISOString() };
   if (data.status !== undefined) {
@@ -149,7 +149,7 @@ export async function updateIntegration(
 
 export async function deleteIntegration(integrationId: string, businessId: string) {
   await requireAdmin();
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
 
   const { error } = await supabase.from("client_integrations").delete().eq("id", integrationId);
   if (error) throw new Error(`Failed to delete integration: ${error.message}`);
@@ -160,7 +160,7 @@ export async function deleteIntegration(integrationId: string, businessId: strin
 
 export async function testIntegrationConnection(integrationId: string, businessId: string) {
   await requireAdmin();
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
 
   // Get integration details
   const { data: integ } = await supabase
@@ -240,7 +240,7 @@ export async function addAutomation(
   }
 ) {
   await requireAdmin();
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
 
   const { error } = await supabase.from("client_automations").insert({
     business_id: businessId,
@@ -286,7 +286,7 @@ export async function updateAutomation(
   }
 ) {
   const admin = await requireAdmin();
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
 
   const payload: Record<string, any> = { updated_at: new Date().toISOString() };
   if (data.is_active !== undefined) payload.is_active = data.is_active;
@@ -328,7 +328,7 @@ export async function updateAutomation(
 
 export async function deleteAutomation(automationId: string, businessId: string) {
   await requireAdmin();
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
 
   const { error } = await supabase.from("client_automations").delete().eq("id", automationId);
   if (error) throw new Error(`Failed to delete automation: ${error.message}`);
@@ -343,7 +343,7 @@ export async function deleteAutomation(automationId: string, businessId: string)
 
 export async function addOpsNote(businessId: string, content: string) {
   const admin = await requireAdmin();
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
 
   const { error } = await supabase.from("ops_notes").insert({
     business_id: businessId,
@@ -359,7 +359,7 @@ export async function addOpsNote(businessId: string, content: string) {
 
 export async function deleteOpsNote(noteId: string, businessId: string) {
   await requireAdmin();
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
 
   const { error } = await supabase.from("ops_notes").delete().eq("id", noteId);
   if (error) throw new Error(`Failed to delete note: ${error.message}`);
@@ -374,7 +374,7 @@ export async function deleteOpsNote(noteId: string, businessId: string) {
 
 export async function getWorkspaceDetail(businessId: string) {
   await requireAdmin();
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
 
   // Parallel fetch all workspace data
   const [
@@ -397,7 +397,7 @@ export async function getWorkspaceDetail(businessId: string) {
         id, business_name, business_type, website, timezone, currency_code, status, created_at, updated_at, owner_email,
         business_settings(config_json),
         onboarding_submissions(*),
-        team_members(user_id, role, users:user_id(email, raw_user_meta_data))
+        team_members(user_id, role, users:user_id(email, full_name, avatar_url))
       `)
       .eq("id", businessId)
       .maybeSingle(),
@@ -474,6 +474,8 @@ export async function getWorkspaceDetail(businessId: string) {
       .eq("business_id", businessId),
   ]);
 
+  if (bizResult.error) return { business: null };
+
   return {
     business: bizResult.data,
     integrations: integrationsResult.data || [],
@@ -498,10 +500,10 @@ export async function getWorkspaceDetail(businessId: string) {
 
 export async function getWorkspacesList() {
   await requireAdmin();
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
 
   // Fetch all workspaces with aggregated data
-  const { data: workspaces } = await supabase
+  const { data: workspaces, error } = await supabase
     .from("businesses")
     .select(`
       id, 
@@ -516,7 +518,7 @@ export async function getWorkspacesList() {
     `)
     .order("created_at", { ascending: false });
 
-  if (!workspaces) return [];
+  if (error || !workspaces || workspaces.length === 0) return [];
 
   // Enrich with counts
   const enriched = await Promise.all(

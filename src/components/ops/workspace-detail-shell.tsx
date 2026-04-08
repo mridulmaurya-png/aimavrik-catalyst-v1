@@ -120,44 +120,83 @@ export function WorkspaceDetailShell({ data }: { data: WorkspaceDetailData }) {
         </Link>
         <span>/</span>
         <span className="text-brand-text-primary font-bold text-body-sm">{biz.business_name}</span>
-      </div>
-
-      {/* Business Header */}
-      <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-        <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <h1 className="text-heading-2 font-bold tracking-tight">{biz.business_name}</h1>
-            <Badge variant={getLifecycleColor(biz.status)}>{getLifecycleLabel(biz.status)}</Badge>
+      </div>      {/* Business Header */}
+      <Card variant="default" className="p-6 bg-brand-bg-primary/40 border-brand-border/20">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-brand-primary/10 rounded-xl text-brand-primary shrink-0">
+              <Building2 className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="text-heading-2 font-bold tracking-tight">{biz.business_name}</h1>
+                <Badge variant={getLifecycleColor(biz.status)}>{getLifecycleLabel(biz.status)}</Badge>
+                {data.health.contactsCount > 0 && (
+                  <Badge variant="neutral" className="gap-1.5 self-center">
+                    <Users className="w-3 h-3" />
+                    {data.health.contactsCount} Users
+                  </Badge>
+                )}
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-2 pt-2">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] text-brand-text-tertiary uppercase font-bold tracking-wider">Business ID</span>
+                  <p className="text-body-sm font-mono text-brand-text-secondary">{biz.id}</p>
+                </div>
+                <div className="space-y-0.5">
+                  <span className="text-[10px] text-brand-text-tertiary uppercase font-bold tracking-wider">Owner</span>
+                  <p className="text-body-sm text-brand-text-secondary">{ownerEmail}</p>
+                </div>
+                <div className="space-y-0.5">
+                  <span className="text-[10px] text-brand-text-tertiary uppercase font-bold tracking-wider">Timestamps</span>
+                  <div className="flex items-center gap-2 text-[11px] text-brand-text-secondary">
+                    <span title="Created"><Calendar className="w-3 h-3 text-brand-text-tertiary inline mr-1" />{new Date(biz.created_at).toLocaleDateString()}</span>
+                    <span>·</span>
+                    <span title="Last Updated"><Clock className="w-3 h-3 text-brand-text-tertiary inline mr-1" />{new Date(biz.updated_at).toLocaleDateString()}</span>
+                  </div>
+                </div>
+                <div className="space-y-0.5">
+                  <span className="text-[10px] text-brand-text-tertiary uppercase font-bold tracking-wider">Onboarding</span>
+                  <div className="flex items-center gap-1.5">
+                    {submission ? (
+                      <Badge variant="success" className="h-5 text-[9px] gap-1 px-1.5">
+                        <Check className="w-2.5 h-2.5" />
+                        SUBMITTED
+                      </Badge>
+                    ) : (
+                      <Badge variant="neutral" className="h-5 text-[9px] gap-1 px-1.5">
+                        <Clock className="w-2.5 h-2.5" />
+                        PENDING
+                      </Badge>
+                    )}
+                    <span className="text-[10px] text-brand-text-tertiary">{submission ? new Date(submission.submitted_at).toLocaleDateString() : 'Awaiting start'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-4 text-[11px] text-brand-text-tertiary">
-            <span>{ownerEmail}</span>
-            <span>·</span>
-            <span>Created {new Date(biz.created_at).toLocaleDateString()}</span>
-            <span>·</span>
-            <span className="font-mono">{biz.id.slice(0, 8)}…</span>
+
+          {/* Lifecycle Actions */}
+          <div className="flex flex-wrap gap-2 lg:justify-end shrink-0">
+            {transitions.map((status: string) => (
+              <Button
+                key={status}
+                variant={status === "active" || status === "ready_for_activation" ? "primary" : status === "restricted" || status === "deactivated" ? "ghost" : "secondary"}
+                className={`h-9 text-body-sm px-4 ${
+                  status === "restricted" || status === "deactivated" 
+                    ? "text-functional-error hover:bg-functional-error/10" 
+                    : ""
+                }`}
+                onClick={() => handleLifecycleChange(status)}
+                disabled={loading}
+              >
+                {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : null}
+                {getLifecycleLabel(status)}
+              </Button>
+            ))}
           </div>
         </div>
-
-        {/* Lifecycle Actions */}
-        <div className="flex flex-wrap gap-2 shrink-0">
-          {transitions.map((status) => (
-            <Button
-              key={status}
-              variant={status === "active" || status === "ready_for_activation" ? "primary" : status === "restricted" || status === "deactivated" ? "ghost" : "secondary"}
-              className={`h-9 text-body-sm px-4 ${
-                status === "restricted" || status === "deactivated" 
-                  ? "text-functional-error hover:bg-functional-error/10" 
-                  : ""
-              }`}
-              onClick={() => handleLifecycleChange(status)}
-              disabled={loading}
-            >
-              {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-              {getLifecycleLabel(status)}
-            </Button>
-          ))}
-        </div>
-      </div>
+      </Card>
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-brand-border/30 overflow-x-auto">
