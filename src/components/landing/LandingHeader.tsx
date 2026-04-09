@@ -50,12 +50,12 @@ export function LandingHeader() {
           >
             Login
           </Link>
-          <a
-            href="mailto:hello@aimavrik.com?subject=Demo%20Request%20—%20AiMavrik%20Catalyst"
+          <Link
+            href="/signup"
             className="btn btn-primary !h-10 !text-body-sm !px-5"
           >
-            Book Demo
-          </a>
+            Sign Up
+          </Link>
         </div>
 
         {/* ── Mobile toggle ── */}
@@ -89,13 +89,13 @@ export function LandingHeader() {
               >
                 Login
               </Link>
-              <a
-                href="mailto:hello@aimavrik.com?subject=Demo%20Request%20—%20AiMavrik%20Catalyst"
+              <Link
+                href="/signup"
                 className="btn btn-primary w-full !text-body-sm"
               >
-                Book Demo
+                Sign Up
                 <ArrowRight className="w-4 h-4" />
-              </a>
+              </Link>
             </div>
           </div>
         </div>

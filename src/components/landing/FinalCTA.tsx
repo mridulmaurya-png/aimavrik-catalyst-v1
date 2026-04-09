@@ -14,14 +14,14 @@ export function FinalCTA() {
           to AiMavrik about a managed execution system built for your business.
         </p>
         <div className="flex flex-wrap justify-center gap-4">
-          <a
-            href="mailto:hello@aimavrik.com?subject=Demo%20Request%20—%20AiMavrik%20Catalyst"
-            id="final-cta-demo"
+          <Link
+            href="/signup"
+            id="final-cta-signup"
             className="btn btn-primary group"
           >
-            Book Demo
+            Sign Up
             <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-          </a>
+          </Link>
           <Link href="/login" id="final-cta-login" className="btn btn-secondary">
             Login
           </Link>

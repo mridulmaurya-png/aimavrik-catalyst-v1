@@ -39,14 +39,14 @@ export function HeroSection() {
             </p>
 
             <div className="flex flex-wrap gap-4 pt-2">
-              <a
-                href="mailto:hello@aimavrik.com?subject=Demo%20Request%20—%20AiMavrik%20Catalyst"
-                id="hero-cta-demo"
+              <Link
+                href="/signup"
+                id="hero-cta-signup"
                 className="btn btn-primary group"
               >
-                Book a Demo
+                Sign Up
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-              </a>
+              </Link>
               <Link
                 href="/login"
                 id="hero-cta-login"
