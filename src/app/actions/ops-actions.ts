@@ -1,9 +1,36 @@
 "use server";
 
-import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth/context";
 import { revalidatePath } from "next/cache";
 import type { WorkspaceLifecycleStatus } from "@/lib/config/ops-constants";
+import { executeEvent } from "@/lib/execution/router";
+
+// ═══════════════════════════════════════════════════
+// AUDIT LOGGING HELPER
+// Every ops action must log to history.
+// ═══════════════════════════════════════════════════
+
+async function logOpsAudit(
+  supabase: Awaited<ReturnType<typeof createAdminClient>>,
+  businessId: string,
+  actorEmail: string,
+  actionType: string,
+  targetObject: string,
+  details: Record<string, any> = {}
+) {
+  await supabase.from("audit_logs").insert({
+    business_id: businessId,
+    log_type: actionType,
+    log_data_json: {
+      actor_email: actorEmail,
+      action_type: actionType,
+      target_object: targetObject,
+      timestamp: new Date().toISOString(),
+      ...details,
+    },
+  });
+}
 
 // ═══════════════════════════════════════════════════
 // WORKSPACE LIFECYCLE ACTIONS
@@ -42,15 +69,10 @@ export async function updateWorkspaceLifecycle(
   });
 
   // Audit log
-  await supabase.from("audit_logs").insert({
-    business_id: businessId,
-    log_type: "WORKSPACE_LIFECYCLE_CHANGED",
-    log_data_json: { 
-      from: current?.status, 
-      to: newStatus, 
-      changed_by: admin.email,
-      reason 
-    },
+  await logOpsAudit(supabase, businessId, admin.email || "unknown", "WORKSPACE_LIFECYCLE_CHANGED", `workspace:${businessId}`, {
+    from: current?.status,
+    to: newStatus,
+    reason,
   });
 
   revalidatePath("/ops/workspaces");
@@ -98,6 +120,12 @@ export async function addIntegration(
 
   if (error) throw new Error(`Failed to add integration: ${error.message}`);
 
+  await logOpsAudit(supabase, businessId, admin.email || "unknown", "INTEGRATION_ADDED", `integration:${data.provider}`, {
+    integration_type: data.integration_type,
+    provider: data.provider,
+    status: data.status,
+  });
+
   revalidatePath(`/ops/workspaces/${businessId}`);
   return { success: true };
 }
@@ -118,8 +146,15 @@ export async function updateIntegration(
     external_account_id?: string;
   }
 ) {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const supabase = await createAdminClient();
+
+  // Get before state
+  const { data: before } = await supabase
+    .from("client_integrations")
+    .select("status, health, provider")
+    .eq("id", integrationId)
+    .single();
 
   const payload: Record<string, any> = { updated_at: new Date().toISOString() };
   if (data.status !== undefined) {
@@ -143,23 +178,39 @@ export async function updateIntegration(
 
   if (error) throw new Error(`Failed to update integration: ${error.message}`);
 
+  await logOpsAudit(supabase, businessId, admin.email || "unknown", "INTEGRATION_UPDATED", `integration:${integrationId}`, {
+    before: { status: before?.status, health: before?.health },
+    after: data,
+  });
+
   revalidatePath(`/ops/workspaces/${businessId}`);
   return { success: true };
 }
 
 export async function deleteIntegration(integrationId: string, businessId: string) {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const supabase = await createAdminClient();
+
+  const { data: before } = await supabase
+    .from("client_integrations")
+    .select("provider, integration_type")
+    .eq("id", integrationId)
+    .single();
 
   const { error } = await supabase.from("client_integrations").delete().eq("id", integrationId);
   if (error) throw new Error(`Failed to delete integration: ${error.message}`);
+
+  await logOpsAudit(supabase, businessId, admin.email || "unknown", "INTEGRATION_DELETED", `integration:${integrationId}`, {
+    provider: before?.provider,
+    integration_type: before?.integration_type,
+  });
 
   revalidatePath(`/ops/workspaces/${businessId}`);
   return { success: true };
 }
 
 export async function testIntegrationConnection(integrationId: string, businessId: string) {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const supabase = await createAdminClient();
 
   // Get integration details
@@ -174,7 +225,6 @@ export async function testIntegrationConnection(integrationId: string, businessI
   let result: { status: "healthy" | "degraded" | "critical" | "unknown", message: string } = { status: "unknown", message: "No test logic for this provider yet." };
 
   if (integ.integration_type === "email" && integ.provider === "Resend") {
-    // Basic config presence check
     const { data: biz } = await supabase.from("business_settings").select("config_json").eq("business_id", businessId).single();
     const config = biz?.config_json as any || {};
     if (config.resend_api_key && config.resend_from_email) {
@@ -192,7 +242,7 @@ export async function testIntegrationConnection(integrationId: string, businessI
         } else {
           result = { status: "degraded", message: "n8n endpoint did not respond to ping." };
         }
-      } catch (e) {
+      } catch {
         result = { status: "critical", message: "Network error reaching n8n." };
       }
     } else {
@@ -206,6 +256,20 @@ export async function testIntegrationConnection(integrationId: string, businessI
     } else {
       result = { status: "critical", message: "WhatsApp API Key or Sender ID missing." };
     }
+  } else if (integ.integration_type === "webhook") {
+    const url = integ.webhook_url;
+    if (url) {
+      try {
+        const res = await fetch(url, { method: "HEAD" }).catch(() => null);
+        result = res 
+          ? { status: "healthy", message: "Webhook endpoint is reachable." }
+          : { status: "degraded", message: "Webhook endpoint did not respond." };
+      } catch {
+        result = { status: "critical", message: "Network error reaching webhook." };
+      }
+    } else {
+      result = { status: "critical", message: "No webhook URL configured." };
+    }
   }
 
   // Update integration table with test result
@@ -214,6 +278,11 @@ export async function testIntegrationConnection(integrationId: string, businessI
     last_tested_at: new Date().toISOString(),
     last_test_result: result.message
   } as any).eq("id", integrationId);
+
+  await logOpsAudit(supabase, businessId, admin.email || "unknown", "INTEGRATION_TESTED", `integration:${integrationId}`, {
+    provider: integ.provider,
+    test_result: result,
+  });
 
   revalidatePath(`/ops/workspaces/${businessId}`);
   return result;
@@ -237,9 +306,10 @@ export async function addAutomation(
     workflow_id?: string;
     output_channel?: string;
     fallback_action?: string;
+    required_integration_type?: string;
   }
 ) {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const supabase = await createAdminClient();
 
   const { error } = await supabase.from("client_automations").insert({
@@ -251,8 +321,9 @@ export async function addAutomation(
     execution_engine: data.execution_engine || "internal",
     webhook_url: data.webhook_url || null,
     workflow_id: data.workflow_id || null,
-    output_channel: data.output_channel || "internal",
-    fallback_action: data.fallback_action || null,
+    output_channel: data.output_channel || "internal_task",
+    fallback_action: data.fallback_action || "block",
+    required_integration_type: data.required_integration_type || null,
     mode: data.mode || "test",
     status: "draft",
     is_active: false,
@@ -260,6 +331,12 @@ export async function addAutomation(
   });
 
   if (error) throw new Error(`Failed to add automation: ${error.message}`);
+
+  await logOpsAudit(supabase, businessId, admin.email || "unknown", "AUTOMATION_ADDED", `automation:${data.automation_name}`, {
+    automation_type: data.automation_type,
+    trigger_event: data.trigger_event,
+    execution_engine: data.execution_engine,
+  });
 
   revalidatePath(`/ops/workspaces/${businessId}`);
   return { success: true };
@@ -283,10 +360,18 @@ export async function updateAutomation(
     workflow_id?: string;
     output_channel?: string;
     fallback_action?: string;
+    required_integration_type?: string;
   }
 ) {
   const admin = await requireAdmin();
   const supabase = await createAdminClient();
+
+  // Get before state
+  const { data: before } = await supabase
+    .from("client_automations")
+    .select("status, is_active, mode, automation_name")
+    .eq("id", automationId)
+    .single();
 
   const payload: Record<string, any> = { updated_at: new Date().toISOString() };
   if (data.is_active !== undefined) payload.is_active = data.is_active;
@@ -301,6 +386,7 @@ export async function updateAutomation(
   if (data.workflow_id !== undefined) payload.workflow_id = data.workflow_id;
   if (data.output_channel !== undefined) payload.output_channel = data.output_channel;
   if (data.fallback_action !== undefined) payload.fallback_action = data.fallback_action;
+  if (data.required_integration_type !== undefined) payload.required_integration_type = data.required_integration_type;
   
   // Auto-set approval/activation timestamps
   if (data.status === 'approved') {
@@ -311,7 +397,7 @@ export async function updateAutomation(
     payload.activated_at = new Date().toISOString();
     payload.is_active = true;
   }
-  if (data.status === 'paused' || data.status === 'blocked') {
+  if (data.status === 'paused' || data.status === 'failed' || data.status === 'archived') {
     payload.is_active = false;
   }
 
@@ -322,19 +408,86 @@ export async function updateAutomation(
 
   if (error) throw new Error(`Failed to update automation: ${error.message}`);
 
+  await logOpsAudit(supabase, businessId, admin.email || "unknown", "AUTOMATION_UPDATED", `automation:${automationId}`, {
+    automation_name: before?.automation_name,
+    before: { status: before?.status, is_active: before?.is_active, mode: before?.mode },
+    after: data,
+  });
+
   revalidatePath(`/ops/workspaces/${businessId}`);
   return { success: true };
 }
 
 export async function deleteAutomation(automationId: string, businessId: string) {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const supabase = await createAdminClient();
+
+  const { data: before } = await supabase
+    .from("client_automations")
+    .select("automation_name, automation_type")
+    .eq("id", automationId)
+    .single();
 
   const { error } = await supabase.from("client_automations").delete().eq("id", automationId);
   if (error) throw new Error(`Failed to delete automation: ${error.message}`);
 
+  await logOpsAudit(supabase, businessId, admin.email || "unknown", "AUTOMATION_DELETED", `automation:${automationId}`, {
+    automation_name: before?.automation_name,
+    automation_type: before?.automation_type,
+  });
+
   revalidatePath(`/ops/workspaces/${businessId}`);
   return { success: true };
+}
+
+// ═══════════════════════════════════════════════════
+// TEST EXECUTION ACTION
+// Simulates trigger → router → engine → logs
+// Never affects real client users unless in live mode
+// ═══════════════════════════════════════════════════
+
+export async function testExecuteAutomation(automationId: string, businessId: string) {
+  const admin = await requireAdmin();
+  const supabase = await createAdminClient();
+
+  // Get automation details
+  const { data: automation } = await supabase
+    .from("client_automations")
+    .select("*")
+    .eq("id", automationId)
+    .single();
+
+  if (!automation) throw new Error("Automation not found");
+
+  const triggerEvent = automation.trigger_event || "manual_trigger";
+
+  // Execute through the router in TEST mode
+  const results = await executeEvent({
+    business_id: businessId,
+    event_type: triggerEvent,
+    mode: "test",
+    payload: {
+      _test: true,
+      _triggered_by: admin.email,
+      _triggered_at: new Date().toISOString(),
+      automation_id: automationId,
+      automation_name: automation.automation_name,
+    },
+    trigger_context: {
+      source: "ops_test_execution",
+      operator: admin.email,
+    },
+  });
+
+  // Audit log
+  await logOpsAudit(supabase, businessId, admin.email || "unknown", "AUTOMATION_TEST_EXECUTED", `automation:${automationId}`, {
+    automation_name: automation.automation_name,
+    trigger_event: triggerEvent,
+    results: results.map(r => ({ run_id: r.run_id, status: r.status, blocked_reason: r.blocked_reason })),
+  });
+
+  revalidatePath(`/ops/workspaces/${businessId}`);
+  return { success: true, results };
 }
 
 // ═══════════════════════════════════════════════════
@@ -353,19 +506,85 @@ export async function addOpsNote(businessId: string, content: string) {
 
   if (error) throw new Error(`Failed to add note: ${error.message}`);
 
+  await logOpsAudit(supabase, businessId, admin.email || "unknown", "NOTE_ADDED", `note:new`, {
+    content_preview: content.substring(0, 100),
+  });
+
   revalidatePath(`/ops/workspaces/${businessId}`);
   return { success: true };
 }
 
 export async function deleteOpsNote(noteId: string, businessId: string) {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const supabase = await createAdminClient();
 
   const { error } = await supabase.from("ops_notes").delete().eq("id", noteId);
   if (error) throw new Error(`Failed to delete note: ${error.message}`);
 
+  await logOpsAudit(supabase, businessId, admin.email || "unknown", "NOTE_DELETED", `note:${noteId}`, {});
+
   revalidatePath(`/ops/workspaces/${businessId}`);
   return { success: true };
+}
+
+// ═══════════════════════════════════════════════════
+// GO-LIVE READINESS CHECK
+// Returns structured readiness assessment
+// ═══════════════════════════════════════════════════
+
+export async function checkGoLiveReadiness(businessId: string) {
+  await requireAdmin();
+  const supabase = await createAdminClient();
+
+  const [bizResult, intResult, autoResult, runsResult] = await Promise.all([
+    supabase.from("businesses").select("status, onboarding_submissions(id)").eq("id", businessId).single(),
+    supabase.from("client_integrations").select("id, status, health").eq("business_id", businessId),
+    supabase.from("client_automations").select("id, status, execution_engine").eq("business_id", businessId),
+    supabase.from("automation_runs").select("id, status, mode").eq("business_id", businessId).eq("mode", "test").eq("status", "completed").limit(1),
+  ]);
+
+  const biz = bizResult.data;
+  const integrations = intResult.data || [];
+  const automations = autoResult.data || [];
+  const testRuns = runsResult.data || [];
+
+  const checks = [
+    {
+      label: "Onboarding Submitted",
+      ready: !!(biz as any)?.onboarding_submissions?.length,
+      reason: "Client onboarding form has not been submitted.",
+    },
+    {
+      label: "At Least One Integration Connected",
+      ready: integrations.some(i => i.status === "connected"),
+      reason: "No integrations are in 'connected' status.",
+    },
+    {
+      label: "At Least One Automation Approved",
+      ready: automations.some(a => a.status === "approved" || a.status === "active"),
+      reason: "No automations have been approved or activated.",
+    },
+    {
+      label: "Delivery Engine Configured",
+      ready: automations.some(a => a.execution_engine && a.execution_engine !== "internal") || automations.some(a => a.status === "approved" || a.status === "active"),
+      reason: "No delivery engine (n8n, webhook) is configured on any automation.",
+    },
+    {
+      label: "Execution Test Passed",
+      ready: testRuns.length > 0,
+      reason: "No successful test execution has been recorded.",
+    },
+    {
+      label: "Workspace Lifecycle Eligible",
+      ready: ["ready_for_activation", "active"].includes(biz?.status || ""),
+      reason: `Workspace status is "${biz?.status || "unknown"}". Must be "ready_for_activation" or "active".`,
+    },
+  ];
+
+  const allReady = checks.every(c => c.ready);
+  const blockingReasons = checks.filter(c => !c.ready).map(c => c.reason);
+
+  return { allReady, checks, blockingReasons };
 }
 
 // ═══════════════════════════════════════════════════
@@ -389,6 +608,7 @@ export async function getWorkspaceDetail(businessId: string) {
     lastEventResult,
     lastActionResult,
     playbooksResult,
+    executionRunsResult,
   ] = await Promise.all([
     // Business + onboarding + settings + owner
     supabase
@@ -472,6 +692,14 @@ export async function getWorkspaceDetail(businessId: string) {
       .from("playbooks")
       .select("id, playbook_type, is_active")
       .eq("business_id", businessId),
+
+    // Execution runs (latest 50)
+    supabase
+      .from("automation_runs")
+      .select("*")
+      .eq("business_id", businessId)
+      .order("created_at", { ascending: false })
+      .limit(50),
   ]);
 
   if (bizResult.error) return { business: null };
@@ -491,6 +719,7 @@ export async function getWorkspaceDetail(businessId: string) {
       lastActionStatus: lastActionResult.data?.status || null,
     },
     playbooks: playbooksResult.data || [],
+    executionRuns: executionRunsResult.data || [],
   };
 }
 

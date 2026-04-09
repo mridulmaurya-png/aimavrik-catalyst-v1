@@ -96,7 +96,7 @@ export const INTEGRATION_PROVIDERS: Record<string, string[]> = {
   custom: ["Custom API"],
 };
 
-export const INTEGRATION_STATUSES = ["connected", "configured", "disconnected", "error"] as const;
+export const INTEGRATION_STATUSES = ["connected", "pending", "disconnected", "failed", "needs_attention"] as const;
 export type IntegrationStatus = typeof INTEGRATION_STATUSES[number];
 
 export function getIntegrationLabel(type: string): string {
@@ -105,6 +105,17 @@ export function getIntegrationLabel(type: string): string {
     payment: "Payment", csv_import: "CSV Import", webhook: "Webhook", n8n: "n8n", custom: "Custom",
   };
   return map[type] || type;
+}
+
+export function getIntegrationStatusColor(status: string): "success" | "warning" | "error" | "info" | "neutral" {
+  switch (status) {
+    case "connected": return "success";
+    case "pending": return "warning";
+    case "needs_attention": return "warning";
+    case "disconnected": return "neutral";
+    case "failed": return "error";
+    default: return "neutral";
+  }
 }
 
 // ═══════════════════════════════════════════════════
@@ -126,14 +137,54 @@ export type AutomationType = typeof AUTOMATION_TYPES[number];
 export const AUTOMATION_MODES = ["test", "live"] as const;
 export type AutomationMode = typeof AUTOMATION_MODES[number];
 
-export const AUTOMATION_STATUSES = ["draft", "review", "approved", "active", "paused", "blocked"] as const;
+export const AUTOMATION_STATUSES = ["draft", "review", "approved", "active", "paused", "failed", "archived"] as const;
 export type AutomationStatus = typeof AUTOMATION_STATUSES[number];
 
-export const EXECUTION_ENGINES = ["internal", "n8n", "external_webhook"] as const;
+export const EXECUTION_ENGINES = ["internal", "n8n", "webhook", "manual_hold"] as const;
 export type ExecutionEngine = typeof EXECUTION_ENGINES[number];
 
-export const OUTPUT_CHANNELS = ["email", "whatsapp", "voice", "chatbot", "internal"] as const;
+export const OUTPUT_CHANNELS = ["email", "whatsapp", "voice", "chatbot", "crm", "internal_task"] as const;
 export type OutputChannel = typeof OUTPUT_CHANNELS[number];
+
+// Trigger events — the heart of the execution system
+export const TRIGGER_EVENTS = [
+  "lead_created",
+  "lead_qualified",
+  "lead_unresponsive",
+  "followup_due",
+  "appointment_booked",
+  "payment_failed",
+  "payment_received",
+  "customer_replied",
+  "form_submitted",
+  "high_intent_detected",
+  "manual_trigger",
+  "lead_submitted",
+  "no_response_24h",
+  "custom_event",
+] as const;
+
+export type TriggerEvent = typeof TRIGGER_EVENTS[number];
+
+export function getTriggerEventLabel(event: string): string {
+  const map: Record<string, string> = {
+    lead_created: "Lead Created",
+    lead_qualified: "Lead Qualified",
+    lead_unresponsive: "Lead Unresponsive",
+    followup_due: "Follow-Up Due",
+    appointment_booked: "Appointment Booked",
+    payment_failed: "Payment Failed",
+    payment_received: "Payment Received",
+    customer_replied: "Customer Replied",
+    form_submitted: "Form Submitted",
+    high_intent_detected: "High Intent Detected",
+    manual_trigger: "Manual Trigger",
+    lead_submitted: "Lead Submitted",
+    no_response_24h: "No Response 24h",
+    custom_event: "Custom Event",
+  };
+  return map[event] || event;
+}
 
 export function getAutomationLabel(type: string): string {
   const map: Record<string, string> = {
@@ -154,7 +205,20 @@ export function getStatusColor(status: string): "success" | "warning" | "error" 
     case "approved": return "info";
     case "review": return "warning";
     case "paused": return "warning";
-    case "blocked": return "error";
+    case "failed": return "error";
+    case "archived": return "neutral";
+    default: return "neutral";
+  }
+}
+
+export function getRunStatusColor(status: string): "success" | "warning" | "error" | "info" | "neutral" {
+  switch (status) {
+    case "completed": return "success";
+    case "handed_off": return "info";
+    case "running": return "info";
+    case "queued": return "warning";
+    case "blocked": return "warning";
+    case "failed": return "error";
     default: return "neutral";
   }
 }
@@ -174,3 +238,29 @@ export function getHealthColor(health: string | null | undefined): "success" | "
     default: return "neutral";
   }
 }
+
+// ═══════════════════════════════════════════════════
+// OPS ACTION TYPES (for audit logging)
+// ═══════════════════════════════════════════════════
+
+export const OPS_ACTION_TYPES = [
+  "WORKSPACE_LIFECYCLE_CHANGED",
+  "WORKSPACE_ACTIVATED",
+  "WORKSPACE_PAUSED",
+  "WORKSPACE_ARCHIVED",
+  "INTEGRATION_ADDED",
+  "INTEGRATION_UPDATED",
+  "INTEGRATION_DELETED",
+  "INTEGRATION_TESTED",
+  "INTEGRATION_HEALTH_SET",
+  "AUTOMATION_ADDED",
+  "AUTOMATION_UPDATED",
+  "AUTOMATION_STATUS_CHANGED",
+  "AUTOMATION_DELETED",
+  "AUTOMATION_TEST_EXECUTED",
+  "NOTE_ADDED",
+  "NOTE_DELETED",
+  "EXECUTION_COMPLETED",
+  "EXECUTION_BLOCKED",
+  "EXECUTION_FAILED",
+] as const;

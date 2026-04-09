@@ -13,9 +13,18 @@ import {
   getIntegrationLabel,
   getAutomationLabel,
   getHealthColor,
+  getStatusColor,
+  getRunStatusColor,
+  getTriggerEventLabel,
+  getIntegrationStatusColor,
   INTEGRATION_TYPES,
   INTEGRATION_PROVIDERS,
+  INTEGRATION_STATUSES,
   AUTOMATION_TYPES,
+  AUTOMATION_STATUSES,
+  EXECUTION_ENGINES,
+  OUTPUT_CHANNELS,
+  TRIGGER_EVENTS,
 } from "@/lib/config/ops-constants";
 import {
   updateWorkspaceLifecycle,
@@ -26,6 +35,8 @@ import {
   addAutomation,
   updateAutomation,
   deleteAutomation,
+  testExecuteAutomation,
+  checkGoLiveReadiness,
   addOpsNote,
   deleteOpsNote,
 } from "@/app/actions/ops-actions";
@@ -43,7 +54,6 @@ import {
   Trash2,
   Check,
   X,
-  ChevronDown,
   AlertCircle,
   Users,
   Calendar,
@@ -54,6 +64,11 @@ import {
   ShieldCheck,
   AlertTriangle,
   Link as LinkIcon,
+  Play,
+  Pause,
+  Archive,
+  TestTube,
+  Rocket,
 } from "lucide-react";
 
 interface WorkspaceDetailData {
@@ -71,12 +86,15 @@ interface WorkspaceDetailData {
     lastActionStatus: string | null;
   };
   playbooks: any[];
+  executionRuns: any[];
 }
+
+type TabKey = "overview" | "integrations" | "automations" | "execution" | "notes" | "history";
 
 export function WorkspaceDetailShell({ data }: { data: WorkspaceDetailData }) {
   const router = useRouter();
   const [loading, setLoading] = React.useState(false);
-  const [activeTab, setActiveTab] = React.useState<"overview" | "integrations" | "automations" | "notes" | "history">("overview");
+  const [activeTab, setActiveTab] = React.useState<TabKey>("overview");
 
   const biz = data.business;
   const submission = biz.onboarding_submissions?.[0];
@@ -103,12 +121,13 @@ export function WorkspaceDetailShell({ data }: { data: WorkspaceDetailData }) {
   const isBlocked = biz.status !== "active";
 
   const tabs = [
-    { key: "overview", label: "Overview", icon: Building2 },
-    { key: "integrations", label: `Integrations (${data.integrations.length})`, icon: Plug },
-    { key: "automations", label: `Automations (${data.automations.length})`, icon: Zap },
-    { key: "notes", label: `Notes (${data.notes.length})`, icon: MessageSquare },
-    { key: "history", label: "History", icon: History },
-  ] as const;
+    { key: "overview" as TabKey, label: "Overview", icon: Building2 },
+    { key: "integrations" as TabKey, label: `Integrations (${data.integrations.length})`, icon: Plug },
+    { key: "automations" as TabKey, label: `Automations (${data.automations.length})`, icon: Zap },
+    { key: "execution" as TabKey, label: `Execution (${(data.executionRuns || []).length})`, icon: Activity },
+    { key: "notes" as TabKey, label: `Notes (${data.notes.length})`, icon: MessageSquare },
+    { key: "history" as TabKey, label: "History", icon: History },
+  ];
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">
@@ -120,7 +139,9 @@ export function WorkspaceDetailShell({ data }: { data: WorkspaceDetailData }) {
         </Link>
         <span>/</span>
         <span className="text-brand-text-primary font-bold text-body-sm">{biz.business_name}</span>
-      </div>      {/* Business Header */}
+      </div>
+
+      {/* Business Header */}
       <Card variant="default" className="p-6 bg-brand-bg-primary/40 border-brand-border/20">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-start gap-4">
@@ -226,6 +247,7 @@ export function WorkspaceDetailShell({ data }: { data: WorkspaceDetailData }) {
           integrations={data.integrations}
           automations={data.automations}
           playbooks={data.playbooks}
+          executionRuns={data.executionRuns || []}
           isLive={!!isLive}
           isBlocked={!!isBlocked}
         />
@@ -235,6 +257,9 @@ export function WorkspaceDetailShell({ data }: { data: WorkspaceDetailData }) {
       )}
       {activeTab === "automations" && (
         <AutomationsTab automations={data.automations} businessId={biz.id} />
+      )}
+      {activeTab === "execution" && (
+        <ExecutionTab runs={data.executionRuns || []} automations={data.automations} businessId={biz.id} />
       )}
       {activeTab === "notes" && (
         <NotesTab notes={data.notes} businessId={biz.id} />
@@ -247,10 +272,31 @@ export function WorkspaceDetailShell({ data }: { data: WorkspaceDetailData }) {
 }
 
 // ═══════════════════════════════════════════════
-// OVERVIEW TAB
+// OVERVIEW TAB (with Go Live Readiness)
 // ═══════════════════════════════════════════════
 
-function OverviewTab({ biz, submission, config, health, integrations, automations, playbooks, isLive, isBlocked }: any) {
+function OverviewTab({ biz, submission, config, health, integrations, automations, playbooks, executionRuns, isLive, isBlocked }: any) {
+  const [readiness, setReadiness] = React.useState<any>(null);
+  const [loadingReadiness, setLoadingReadiness] = React.useState(false);
+
+  const handleCheckReadiness = async () => {
+    setLoadingReadiness(true);
+    try {
+      const result = await checkGoLiveReadiness(biz.id);
+      setReadiness(result);
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setLoadingReadiness(false);
+    }
+  };
+
+  // Auto-check on mount
+  React.useEffect(() => {
+    handleCheckReadiness();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Execution Health — Full Width */}
@@ -266,13 +312,14 @@ function OverviewTab({ biz, submission, config, health, integrations, automation
             <Badge variant="neutral" className="ml-auto">Awaiting Data</Badge>
           )}
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
           <MetricBox label="Contacts" value={health.contactsCount} icon={Users} />
           <MetricBox label="Events" value={health.eventsCount} icon={Radio} />
           <MetricBox label="Actions" value={health.actionsCount} icon={Zap} />
           <MetricBox label="Integrations" value={integrations.filter((i: any) => i.status === "connected").length} icon={Plug} />
-          <MetricBox label="Active Automations" value={automations.filter((a: any) => a.is_active).length} icon={Shield} />
+          <MetricBox label="Active Auto" value={automations.filter((a: any) => a.is_active).length} icon={Shield} />
           <MetricBox label="Playbooks" value={playbooks.filter((p: any) => p.is_active).length} icon={FileText} />
+          <MetricBox label="Exec Runs" value={(executionRuns || []).length} icon={Activity} />
         </div>
         <div className="flex gap-8 mt-4 pt-4 border-t border-brand-border/30">
           <div className="text-[11px] text-brand-text-tertiary">
@@ -283,6 +330,51 @@ function OverviewTab({ biz, submission, config, health, integrations, automation
             {health.lastActionStatus && <span className="ml-1 text-brand-text-tertiary">({health.lastActionStatus})</span>}
           </div>
         </div>
+      </Card>
+
+      {/* Go Live Readiness Panel */}
+      <Card variant="elevated" className="lg:col-span-2 p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Rocket className="w-4 h-4 text-brand-primary" />
+          <h3 className="text-[11px] font-bold uppercase tracking-widest text-brand-text-tertiary">Go Live Readiness</h3>
+          <Button variant="ghost" className="ml-auto h-7 text-[10px]" onClick={handleCheckReadiness} disabled={loadingReadiness}>
+            {loadingReadiness ? <Loader2 className="w-3 h-3 animate-spin" /> : "Refresh"}
+          </Button>
+        </div>
+        
+        {readiness ? (
+          <>
+            <div className="space-y-3">
+              {readiness.checks.map((check: any, i: number) => (
+                <ReadinessRow key={i} label={check.label} ready={check.ready} detail={check.ready ? undefined : check.reason} />
+              ))}
+            </div>
+            <div className="pt-4 border-t border-brand-border/30">
+              {readiness.allReady ? (
+                <div className="flex items-center gap-2 text-functional-success">
+                  <ShieldCheck className="w-5 h-5" />
+                  <span className="text-[11px] font-bold uppercase tracking-wider">Ready for Go-Live</span>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-functional-warning">
+                    <AlertTriangle className="w-5 h-5" />
+                    <span className="text-[11px] font-bold uppercase tracking-wider">Not Ready — {readiness.blockingReasons.length} Blocking Issue{readiness.blockingReasons.length > 1 ? "s" : ""}</span>
+                  </div>
+                  <div className="space-y-1">
+                    {readiness.blockingReasons.map((reason: string, i: number) => (
+                      <p key={i} className="text-[10px] text-functional-error pl-7">• {reason}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center justify-center h-24 text-brand-text-tertiary text-body-sm">
+            <Loader2 className="w-4 h-4 animate-spin mr-2" /> Checking readiness…
+          </div>
+        )}
       </Card>
 
       {/* Business Profile */}
@@ -330,34 +422,95 @@ function OverviewTab({ biz, submission, config, health, integrations, automation
         )}
       </Card>
 
-      {/* Setup Readiness */}
+      {/* Quick Execution Summary */}
       <Card variant="elevated" className="p-6 space-y-4">
         <div className="flex items-center gap-2">
-          <Shield className="w-4 h-4 text-brand-primary" />
-          <h3 className="text-[11px] font-bold uppercase tracking-widest text-brand-text-tertiary">Activation Readiness</h3>
+          <Database className="w-4 h-4 text-brand-primary" />
+          <h3 className="text-[11px] font-bold uppercase tracking-widest text-brand-text-tertiary">Execution Summary</h3>
         </div>
         <div className="space-y-3">
-          <ReadinessRow label="Onboarding Submitted" ready={!!submission} />
-          <ReadinessRow label="Email Configured" ready={!!(config.resend_api_key && config.resend_from_email)} />
-          <ReadinessRow label="WhatsApp Configured" ready={!!(config.whatsapp_api_key && config.whatsapp_sender_id)} />
-          <ReadinessRow label="Integrations Connected" ready={integrations.some((i: any) => i.status === "connected")} detail={`${integrations.filter((i: any) => i.status === "connected").length} connected`} />
-          <ReadinessRow label="Automations Approved" ready={automations.some((a: any) => a.status === 'approved' || a.status === 'active')} detail={`${automations.filter((a: any) => a.status === 'approved' || a.status === 'active').length} ready`} />
-          <ReadinessRow label="Execution Map Linked" ready={automations.some((a: any) => a.webhook_url || a.workflow_id)} />
-          
-          <div className="pt-4 border-t border-brand-border/30">
-            {submission && integrations.some((i: any) => i.status === "connected") && automations.some((a: any) => a.status === 'approved' || a.status === 'active') ? (
-              <div className="flex items-center gap-2 text-functional-success">
-                <ShieldCheck className="w-4 h-4" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Ready for Activation</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 text-brand-text-tertiary">
-                <AlertTriangle className="w-4 h-4" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Blocked — Missing Critical Config</span>
-              </div>
-            )}
-          </div>
+          <InfoRow label="Total Runs" value={String((executionRuns || []).length)} />
+          <InfoRow label="Completed" value={String((executionRuns || []).filter((r: any) => r.status === "completed").length)} />
+          <InfoRow label="Handed Off" value={String((executionRuns || []).filter((r: any) => r.status === "handed_off").length)} />
+          <InfoRow label="Blocked" value={String((executionRuns || []).filter((r: any) => r.status === "blocked").length)} />
+          <InfoRow label="Failed" value={String((executionRuns || []).filter((r: any) => r.status === "failed").length)} />
+          <InfoRow label="Test Runs" value={String((executionRuns || []).filter((r: any) => r.mode === "test").length)} />
         </div>
+      </Card>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════
+// EXECUTION TAB
+// ═══════════════════════════════════════════════
+
+function ExecutionTab({ runs, automations, businessId }: { runs: any[]; automations: any[]; businessId: string }) {
+  const autoMap = React.useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const a of automations) m[a.id] = a.automation_name;
+    return m;
+  }, [automations]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-heading-4 font-bold">Execution Logs</h3>
+        <span className="text-[11px] text-brand-text-tertiary">{runs.length} runs recorded</span>
+      </div>
+
+      <Card variant="elevated" className="overflow-hidden">
+        <table className="table-premium w-full">
+          <thead>
+            <tr className="border-b border-brand-border">
+              <th className="h-10 px-4 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Time</th>
+              <th className="h-10 px-4 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Trigger</th>
+              <th className="h-10 px-4 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Automation</th>
+              <th className="h-10 px-4 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Engine</th>
+              <th className="h-10 px-4 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Channel</th>
+              <th className="h-10 px-4 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Mode</th>
+              <th className="h-10 px-4 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Status</th>
+              <th className="h-10 px-4 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Blocked Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+            {runs.length === 0 && (
+              <tr><td colSpan={8} className="p-8 text-center text-brand-text-tertiary text-body-sm">No execution runs recorded yet.</td></tr>
+            )}
+            {runs.map((run: any) => (
+              <tr key={run.id} className="border-b border-brand-border/40 hover:bg-white/[0.015]">
+                <td className="px-4 py-3 text-[11px] text-brand-text-tertiary whitespace-nowrap">
+                  {new Date(run.created_at).toLocaleString()}
+                </td>
+                <td className="px-4 py-3">
+                  <span className="text-[11px] font-bold text-brand-text-secondary">{getTriggerEventLabel(run.trigger_event)}</span>
+                </td>
+                <td className="px-4 py-3 text-[11px] text-brand-text-secondary">
+                  {run.automation_id ? (autoMap[run.automation_id] || run.automation_id.substring(0, 8)) : "—"}
+                </td>
+                <td className="px-4 py-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">{run.execution_engine}</span>
+                </td>
+                <td className="px-4 py-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">{run.output_channel}</span>
+                </td>
+                <td className="px-4 py-3">
+                  <Badge variant={run.mode === "live" ? "warning" : "neutral"} className="text-[9px]">
+                    {run.mode}
+                  </Badge>
+                </td>
+                <td className="px-4 py-3">
+                  <Badge variant={getRunStatusColor(run.status)} className="text-[9px]">
+                    {run.status}
+                  </Badge>
+                </td>
+                <td className="px-4 py-3 text-[10px] text-brand-text-tertiary max-w-[200px] truncate" title={run.blocked_reason || ""}>
+                  {run.blocked_reason || "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </Card>
     </div>
   );
@@ -373,7 +526,7 @@ function IntegrationsTab({ integrations, businessId }: { integrations: any[]; bu
   const [loading, setLoading] = React.useState(false);
   const [newType, setNewType] = React.useState("email");
   const [newProvider, setNewProvider] = React.useState("");
-  const [newStatus, setNewStatus] = React.useState("configured");
+  const [newStatus, setNewStatus] = React.useState("pending");
   const [newNotes, setNewNotes] = React.useState("");
   const [newMode, setNewMode] = React.useState("internal");
   const [newWebhook, setNewWebhook] = React.useState("");
@@ -464,9 +617,7 @@ function IntegrationsTab({ integrations, businessId }: { integrations: any[]; bu
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Status</label>
               <select value={newStatus} onChange={e => setNewStatus(e.target.value)} className="input-base h-10 text-body-sm">
-                <option value="configured">Configured</option>
-                <option value="connected">Connected</option>
-                <option value="disconnected">Disconnected</option>
+                {INTEGRATION_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
@@ -525,7 +676,7 @@ function IntegrationsTab({ integrations, businessId }: { integrations: any[]; bu
                 <td className="px-5 py-3 text-body-sm font-bold">{getIntegrationLabel(integ.integration_type)}</td>
                 <td className="px-5 py-3 text-body-sm text-brand-text-secondary">{integ.provider || "—"}</td>
                 <td className="px-5 py-3">
-                  <Badge variant={integ.status === "connected" ? "success" : integ.status === "error" ? "error" : "neutral"}>
+                  <Badge variant={getIntegrationStatusColor(integ.status)}>
                     {integ.status}
                   </Badge>
                   <div className="text-[9px] text-brand-text-tertiary mt-1 uppercase font-bold">{integ.execution_mode}</div>
@@ -588,13 +739,14 @@ function IntegrationsTab({ integrations, businessId }: { integrations: any[]; bu
 }
 
 // ═══════════════════════════════════════════════
-// AUTOMATIONS TAB
+// AUTOMATIONS TAB (with Test/Activate/Pause/Archive actions)
 // ═══════════════════════════════════════════════
 
 function AutomationsTab({ automations, businessId }: { automations: any[]; businessId: string }) {
   const router = useRouter();
   const [showAdd, setShowAdd] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
+  const [testingId, setTestingId] = React.useState<string | null>(null);
   const [form, setForm] = React.useState({ 
     name: "", 
     type: "lead_scoring", 
@@ -602,10 +754,12 @@ function AutomationsTab({ automations, businessId }: { automations: any[]; busin
     mode: "test", 
     notes: "",
     engine: "internal",
-    channel: "internal",
-    trigger_event: "lead_submitted",
+    channel: "internal_task",
+    trigger_event: "lead_created",
     webhook_url: "",
     workflow_id: "",
+    fallback_action: "block",
+    required_integration_type: "",
   });
 
   const handleAdd = async () => {
@@ -623,33 +777,11 @@ function AutomationsTab({ automations, businessId }: { automations: any[]; busin
         trigger_event: form.trigger_event,
         webhook_url: form.webhook_url || undefined,
         workflow_id: form.workflow_id || undefined,
+        fallback_action: form.fallback_action,
+        required_integration_type: form.required_integration_type || undefined,
       });
       setShowAdd(false);
-      setForm({ name: "", type: "lead_scoring", trigger: "", mode: "test", notes: "", engine: "internal", channel: "internal", trigger_event: "lead_submitted", webhook_url: "", workflow_id: "" });
-      router.refresh();
-    } catch (e: any) {
-      alert(e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleToggle = async (auto: any) => {
-    setLoading(true);
-    try {
-      await updateAutomation(auto.id, businessId, { is_active: !auto.is_active });
-      router.refresh();
-    } catch (e: any) {
-      alert(e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleModeSwitch = async (auto: any, mode: string) => {
-    setLoading(true);
-    try {
-      await updateAutomation(auto.id, businessId, { mode });
+      setForm({ name: "", type: "lead_scoring", trigger: "", mode: "test", notes: "", engine: "internal", channel: "internal_task", trigger_event: "lead_created", webhook_url: "", workflow_id: "", fallback_action: "block", required_integration_type: "" });
       router.refresh();
     } catch (e: any) {
       alert(e.message);
@@ -667,6 +799,20 @@ function AutomationsTab({ automations, businessId }: { automations: any[]; busin
       alert(e.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleTestExecution = async (auto: any) => {
+    setTestingId(auto.id);
+    try {
+      const result = await testExecuteAutomation(auto.id, businessId);
+      const statuses = result.results.map((r: any) => `${r.status}${r.blocked_reason ? `: ${r.blocked_reason}` : ""}`).join("\n");
+      alert(`Test Execution Complete:\n${statuses}`);
+      router.refresh();
+    } catch (e: any) {
+      alert(`Test Error: ${e.message}`);
+    } finally {
+      setTestingId(null);
     }
   };
 
@@ -716,41 +862,43 @@ function AutomationsTab({ automations, businessId }: { automations: any[]; busin
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Trigger Event</label>
+              <select value={form.trigger_event} onChange={e => setForm(f => ({ ...f, trigger_event: e.target.value }))} className="input-base h-10 text-body-sm">
+                {TRIGGER_EVENTS.map(t => <option key={t} value={t}>{getTriggerEventLabel(t)}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1.5">
               <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Exec Engine</label>
               <select value={form.engine} onChange={e => setForm(f => ({ ...f, engine: e.target.value }))} className="input-base h-10 text-body-sm">
-                <option value="internal">Internal</option>
-                <option value="n8n">n8n Workflow</option>
-                <option value="external_webhook">Ext Webhook</option>
+                {EXECUTION_ENGINES.map(e => <option key={e} value={e}>{e}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Output Channel</label>
               <select value={form.channel} onChange={e => setForm(f => ({ ...f, channel: e.target.value }))} className="input-base h-10 text-body-sm">
-                <option value="internal">Internal</option>
-                <option value="email">Email</option>
-                <option value="whatsapp">WhatsApp</option>
-                <option value="voice">Voice</option>
-                <option value="chatbot">Chatbot</option>
+                {OUTPUT_CHANNELS.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Trigger Event</label>
-              <select value={form.trigger_event} onChange={e => setForm(f => ({ ...f, trigger_event: e.target.value }))} className="input-base h-10 text-body-sm">
-                <option value="lead_submitted">Lead Submitted</option>
-                <option value="no_response_24h">No Response 24h</option>
-                <option value="payment_failed">Payment Failed</option>
-                <option value="manual_trigger">Manual</option>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Fallback</label>
+              <select value={form.fallback_action} onChange={e => setForm(f => ({ ...f, fallback_action: e.target.value }))} className="input-base h-10 text-body-sm">
+                <option value="block">Block</option>
+                <option value="skip">Skip</option>
+                <option value="notify_ops">Notify Ops</option>
               </select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Workflow / Webhook URL</label>
-              <input value={form.webhook_url} onChange={e => setForm(f => ({ ...f, webhook_url: e.target.value }))} className="input-base h-10 text-body-sm" placeholder="URL or ID" />
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Trigger</label>
-              <input value={form.trigger} onChange={e => setForm(f => ({ ...f, trigger: e.target.value }))} className="input-base h-10 text-body-sm" placeholder="e.g. On new lead event" />
+              <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Webhook URL</label>
+              <input value={form.webhook_url} onChange={e => setForm(f => ({ ...f, webhook_url: e.target.value }))} className="input-base h-10 text-body-sm" placeholder="URL or ID" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Required Integration Type</label>
+              <select value={form.required_integration_type} onChange={e => setForm(f => ({ ...f, required_integration_type: e.target.value }))} className="input-base h-10 text-body-sm">
+                <option value="">None</option>
+                {INTEGRATION_TYPES.map(t => <option key={t} value={t}>{getIntegrationLabel(t)}</option>)}
+              </select>
             </div>
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Notes</label>
@@ -771,14 +919,14 @@ function AutomationsTab({ automations, businessId }: { automations: any[]; busin
         <table className="table-premium w-full">
           <thead>
             <tr className="border-b border-brand-border">
-              <th className="h-10 px-5 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Name</th>
-              <th className="h-10 px-5 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Type</th>
-              <th className="h-10 px-5 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Active</th>
-              <th className="h-10 px-5 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Mode</th>
-              <th className="h-10 px-5 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Status</th>
-              <th className="h-10 px-5 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Engine/Map</th>
-              <th className="h-10 px-5 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Last Run</th>
-              <th className="h-10 px-5 w-28"></th>
+              <th className="h-10 px-4 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Name</th>
+              <th className="h-10 px-4 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Trigger</th>
+              <th className="h-10 px-4 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Status</th>
+              <th className="h-10 px-4 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Engine</th>
+              <th className="h-10 px-4 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Channel</th>
+              <th className="h-10 px-4 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Mode</th>
+              <th className="h-10 px-4 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Last Run</th>
+              <th className="h-10 px-4 text-[10px] font-bold uppercase tracking-widest text-brand-text-tertiary text-left">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -787,54 +935,72 @@ function AutomationsTab({ automations, businessId }: { automations: any[]; busin
             )}
             {automations.map((auto: any) => (
               <tr key={auto.id} className="border-b border-brand-border/40 hover:bg-white/[0.015]">
-                <td className="px-5 py-3">
+                <td className="px-4 py-3">
                   <span className="text-body-sm font-bold">{auto.automation_name}</span>
-                  {auto.trigger_description && <span className="block text-[10px] text-brand-text-tertiary mt-0.5">{auto.trigger_description}</span>}
+                  <span className="block text-[10px] text-brand-text-tertiary mt-0.5">{getAutomationLabel(auto.automation_type)}</span>
                 </td>
-                <td className="px-5 py-3 text-body-sm text-brand-text-secondary">{getAutomationLabel(auto.automation_type)}</td>
-                <td className="px-5 py-3">
-                  <select 
-                    value={auto.status || "draft"} 
-                    onChange={e => handleStatusChange(auto, e.target.value)} 
-                    className={`bg-transparent border border-brand-border/30 rounded px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${
-                      auto.status === 'active' ? 'text-functional-success' : 
-                      auto.status === 'approved' ? 'text-brand-primary' : 
-                      'text-brand-text-tertiary'
-                    }`}
-                    disabled={loading}
-                  >
-                    <option value="draft">Draft</option>
-                    <option value="review">Review</option>
-                    <option value="approved">Approved</option>
-                    <option value="active">Active</option>
-                    <option value="paused">Paused</option>
-                    <option value="blocked">Blocked</option>
-                  </select>
+                <td className="px-4 py-3">
+                  <span className="text-[11px] font-bold text-brand-text-secondary">{getTriggerEventLabel(auto.trigger_event || "—")}</span>
                 </td>
-                <td className="px-5 py-3 text-[11px] text-brand-text-secondary">
+                <td className="px-4 py-3">
+                  <Badge variant={getStatusColor(auto.status || "draft")} className="text-[9px]">{auto.status || "draft"}</Badge>
+                </td>
+                <td className="px-4 py-3">
                   <div className="flex flex-col">
-                    <span className="font-bold flex items-center gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary flex items-center gap-1">
                       <LinkIcon className="w-3 h-3 text-brand-primary" />
                       {auto.execution_engine}
                     </span>
-                    <span className="text-[9px] opacity-60 truncate max-w-[120px]">{auto.webhook_url || auto.workflow_id || 'no link'}</span>
+                    <span className="text-[9px] opacity-60 truncate max-w-[100px]">{auto.webhook_url || auto.workflow_id || 'no link'}</span>
                   </div>
                 </td>
-                <td className="px-5 py-3 text-[11px] text-brand-text-tertiary">
+                <td className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">
+                  {auto.output_channel || "internal"}
+                </td>
+                <td className="px-4 py-3">
+                  <Badge variant={auto.mode === "live" ? "warning" : "neutral"} className="text-[9px]">{auto.mode || "test"}</Badge>
+                </td>
+                <td className="px-4 py-3 text-[11px] text-brand-text-tertiary">
                   {auto.last_run_at ? new Date(auto.last_run_at).toLocaleString() : "Never"}
                   {auto.last_result && <span className={`ml-1 ${auto.last_result === 'success' ? 'text-functional-success' : 'text-functional-error'}`}>({auto.last_result})</span>}
                 </td>
-                <td className="px-5 py-3">
-                  <div className="flex gap-2">
+                <td className="px-4 py-3">
+                  <div className="flex gap-1">
+                    {/* Test */}
                     <button 
-                      onClick={() => handleToggle(auto)}
-                      className={`w-8 h-4 rounded-full transition-colors relative ${auto.is_active ? "bg-functional-success" : "bg-brand-border"}`}
-                      disabled={loading}
-                      title="Quick Toggle"
+                      onClick={() => handleTestExecution(auto)}
+                      className="p-1.5 rounded hover:bg-brand-primary/10 text-brand-text-tertiary hover:text-brand-primary" 
+                      title="Test Execute"
+                      disabled={testingId === auto.id}
                     >
-                      <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${auto.is_active ? "translate-x-4" : "translate-x-0.5"}`} />
+                      {testingId === auto.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <TestTube className="w-3.5 h-3.5" />}
                     </button>
-                    <button onClick={() => handleDelete(auto.id)} className="p-1 rounded hover:bg-functional-error/10 text-functional-error" title="Delete">
+                    {/* Approve */}
+                    {(auto.status === "draft" || auto.status === "review") && (
+                      <button onClick={() => handleStatusChange(auto, "approved")} className="p-1.5 rounded hover:bg-functional-success/10 text-functional-success" title="Approve">
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {/* Activate */}
+                    {auto.status === "approved" && (
+                      <button onClick={() => handleStatusChange(auto, "active")} className="p-1.5 rounded hover:bg-functional-success/10 text-functional-success" title="Activate">
+                        <Play className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {/* Pause */}
+                    {auto.status === "active" && (
+                      <button onClick={() => handleStatusChange(auto, "paused")} className="p-1.5 rounded hover:bg-functional-warning/10 text-functional-warning" title="Pause">
+                        <Pause className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {/* Archive */}
+                    {(auto.status === "paused" || auto.status === "failed") && (
+                      <button onClick={() => handleStatusChange(auto, "archived")} className="p-1.5 rounded hover:bg-brand-text-tertiary/10 text-brand-text-tertiary" title="Archive">
+                        <Archive className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {/* Delete */}
+                    <button onClick={() => handleDelete(auto.id)} className="p-1.5 rounded hover:bg-functional-error/10 text-functional-error" title="Delete">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -998,14 +1164,16 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 function ReadinessRow({ label, ready, detail }: { label: string; ready: boolean; detail?: string }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-[11px] text-brand-text-secondary">{label}</span>
-      <div className="flex items-center gap-2">
-        {detail && <span className="text-[10px] text-brand-text-tertiary">{detail}</span>}
+    <div className="flex items-start justify-between gap-4">
+      <div className="flex-1">
+        <span className="text-[11px] text-brand-text-secondary">{label}</span>
+        {!ready && detail && <p className="text-[10px] text-functional-error mt-0.5">{detail}</p>}
+      </div>
+      <div className="shrink-0">
         {ready ? (
           <Check className="w-4 h-4 text-functional-success" />
         ) : (
-          <X className="w-4 h-4 text-brand-text-tertiary opacity-40" />
+          <X className="w-4 h-4 text-functional-error" />
         )}
       </div>
     </div>
