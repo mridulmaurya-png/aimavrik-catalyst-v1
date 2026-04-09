@@ -95,11 +95,20 @@
   color-scheme: dark;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background-color: var(--color-brand-bg-primary);
   color: var(--color-brand-text-primary);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Landing page anchor scroll offset for fixed nav */
+section[id] {
+  scroll-margin-top: 80px;
 }
 
 @layer components {

@@ -1,0 +1,9 @@
+export { LandingHeader } from "./LandingHeader";
+export { HeroSection } from "./HeroSection";
+export { ProblemSection } from "./ProblemSection";
+export { SolutionSection } from "./SolutionSection";
+export { HowItWorksSection } from "./HowItWorksSection";
+export { UseCasesSection } from "./UseCasesSection";
+export { WhySection } from "./WhySection";
+export { FinalCTA } from "./FinalCTA";
+export { LandingFooter } from "./LandingFooter";
