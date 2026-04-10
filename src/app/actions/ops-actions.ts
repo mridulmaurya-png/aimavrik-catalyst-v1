@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/auth/context";
 import { revalidatePath } from "next/cache";
 import type { WorkspaceLifecycleStatus } from "@/lib/config/ops-constants";
 import { executeEvent } from "@/lib/execution/router";
+import { scheduleFollowUp, processScheduledFollowUps } from "@/lib/execution/scheduler";
 
 // ═══════════════════════════════════════════════════
 // AUDIT LOGGING HELPER
@@ -779,4 +780,192 @@ export async function getWorkspacesList() {
   );
 
   return enriched;
+}
+
+// ═══════════════════════════════════════════════════
+// SIMULATE LEAD EVENT
+// Fires a test lead_created event through the managed router
+// from the Ops panel. Logs everything.
+// ═══════════════════════════════════════════════════
+
+export async function simulateLeadEvent(businessId: string) {
+  const admin = await requireAdmin();
+  const supabase = await createAdminClient();
+
+  const testEntityId = `test_lead_${Date.now()}`;
+
+  // Fire through the managed router
+  const results = await executeEvent({
+    business_id: businessId,
+    event_type: "lead_created",
+    entity_id: testEntityId,
+    mode: "test",
+    payload: {
+      _test: true,
+      _simulated: true,
+      _triggered_by: admin.email,
+      _triggered_at: new Date().toISOString(),
+      lead_name: "Test Lead (Simulated)",
+      lead_email: "test@example.com",
+      lead_phone: "+1555000000",
+      lead_source: "ops_simulation",
+    },
+    trigger_context: {
+      source: "ops_simulate_lead",
+      operator: admin.email,
+    },
+  });
+
+  // If execution succeeded, also schedule a test follow-up
+  const anySucceeded = results.some(
+    r => r.status === "completed" || r.status === "handed_off"
+  );
+
+  let followupScheduled = false;
+  if (anySucceeded) {
+    const schedResult = await scheduleFollowUp({
+      business_id: businessId,
+      entity_id: testEntityId,
+      entity_type: "lead",
+      source_run_id: results[0]?.run_id,
+      payload: {
+        _test: true,
+        original_event_type: "lead_created",
+        original_entity_id: testEntityId,
+      },
+      delay_minutes: 15,
+    });
+    followupScheduled = schedResult.success;
+  }
+
+  // Audit
+  await logOpsAudit(supabase, businessId, admin.email || "unknown", "LEAD_EVENT_SIMULATED", `simulation:${testEntityId}`, {
+    entity_id: testEntityId,
+    results: results.map(r => ({ run_id: r.run_id, status: r.status, engine: r.engine })),
+    followup_scheduled: followupScheduled,
+  });
+
+  revalidatePath(`/ops/workspaces/${businessId}`);
+  return { success: true, results, followup_scheduled: followupScheduled };
+}
+
+// ═══════════════════════════════════════════════════
+// SEED LEAD WORKFLOW
+// Creates the two starter automations for a workspace:
+// 1. Instant Lead Response (lead_created → n8n)
+// 2. Follow-up on No Reply (followup_due → n8n)
+// ═══════════════════════════════════════════════════
+
+export async function seedLeadWorkflow(businessId: string, n8nWebhookUrl?: string) {
+  const admin = await requireAdmin();
+  const supabase = await createAdminClient();
+
+  // Check if automations already exist
+  const { data: existing } = await supabase
+    .from("client_automations")
+    .select("id, trigger_event")
+    .eq("business_id", businessId)
+    .in("trigger_event", ["lead_created", "followup_due"]);
+
+  if (existing && existing.length >= 2) {
+    return { success: false, error: "Workflow automations already exist for this workspace." };
+  }
+
+  const automationsToCreate = [];
+
+  const hasLeadCreated = existing?.some(a => a.trigger_event === "lead_created");
+  const hasFollowup = existing?.some(a => a.trigger_event === "followup_due");
+
+  if (!hasLeadCreated) {
+    automationsToCreate.push({
+      business_id: businessId,
+      automation_name: "Instant Lead Response",
+      automation_type: "lead_response",
+      trigger_description: "Fires when a new lead is captured via CRM, form, or API.",
+      trigger_event: "lead_created",
+      execution_engine: n8nWebhookUrl ? "n8n" : "internal",
+      webhook_url: n8nWebhookUrl || null,
+      output_channel: "whatsapp",
+      fallback_action: "block",
+      required_integration_type: n8nWebhookUrl ? "n8n" : null,
+      mode: "test",
+      status: "draft",
+      is_active: false,
+    });
+  }
+
+  if (!hasFollowup) {
+    automationsToCreate.push({
+      business_id: businessId,
+      automation_name: "Follow-up on No Reply",
+      automation_type: "follow_up",
+      trigger_description: "Fires 15 minutes after lead_created if no response received.",
+      trigger_event: "followup_due",
+      execution_engine: n8nWebhookUrl ? "n8n" : "internal",
+      webhook_url: n8nWebhookUrl || null,
+      output_channel: "email",
+      fallback_action: "block",
+      required_integration_type: n8nWebhookUrl ? "n8n" : null,
+      mode: "test",
+      status: "draft",
+      is_active: false,
+    });
+  }
+
+  if (automationsToCreate.length > 0) {
+    const { error } = await supabase
+      .from("client_automations")
+      .insert(automationsToCreate);
+
+    if (error) throw new Error(`Failed to seed automations: ${error.message}`);
+  }
+
+  await logOpsAudit(supabase, businessId, admin.email || "unknown", "WORKFLOW_SEEDED", `workspace:${businessId}`, {
+    automations_created: automationsToCreate.map(a => a.automation_name),
+    n8n_webhook_url: n8nWebhookUrl || "none",
+  });
+
+  revalidatePath(`/ops/workspaces/${businessId}`);
+  return { success: true, created: automationsToCreate.length };
+}
+
+// ═══════════════════════════════════════════════════
+// PROCESS SCHEDULED FOLLOW-UPS (Manual Trigger)
+// Allows ops to manually trigger the cron processor
+// ═══════════════════════════════════════════════════
+
+export async function processScheduledFollowUpsAction(businessId?: string) {
+  const admin = await requireAdmin();
+  const result = await processScheduledFollowUps(20);
+
+  if (businessId) {
+    revalidatePath(`/ops/workspaces/${businessId}`);
+  }
+
+  return { success: true, ...result };
+}
+
+// ═══════════════════════════════════════════════════
+// GENERATE / REGENERATE WORKSPACE API KEY
+// ═══════════════════════════════════════════════════
+
+export async function generateWorkspaceApiKey(businessId: string) {
+  const admin = await requireAdmin();
+  const supabase = await createAdminClient();
+
+  const apiKey = `cat_${crypto.randomUUID().replace(/-/g, "")}`;
+
+  const { error } = await supabase
+    .from("businesses")
+    .update({ api_key: apiKey })
+    .eq("id", businessId);
+
+  if (error) throw new Error(`Failed to generate API key: ${error.message}`);
+
+  await logOpsAudit(supabase, businessId, admin.email || "unknown", "API_KEY_GENERATED", `workspace:${businessId}`, {
+    key_prefix: apiKey.substring(0, 8) + "...",
+  });
+
+  revalidatePath(`/ops/workspaces/${businessId}`);
+  return { success: true, api_key: apiKey };
 }
