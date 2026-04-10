@@ -4,12 +4,14 @@
  * Cron endpoint that picks up due follow-ups and fires them 
  * through the managed execution router.
  * 
- * Protected by INTERNAL_EXECUTION_SECRET.
+ * Protected by CRON_SECRET / INTERNAL_EXECUTION_SECRET.
  * Call this from Vercel Cron, external scheduler, or manually from Ops.
  */
 
 import { NextResponse } from "next/server";
 import { processScheduledFollowUps } from "@/lib/execution/scheduler";
+
+export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
@@ -38,30 +40,37 @@ export async function POST(req: Request) {
 
   } catch (err: any) {
     return NextResponse.json(
-      { success: false, error: "CRON_ERROR", message: err.message },
+      { success: false, error: "CRON_ERROR", message: err.message || "Unknown error" },
       { status: 500 }
     );
   }
 }
 
-// Also support GET for Vercel Cron
+// Vercel Cron calls GET — must be fully wrapped in try/catch
 export async function GET(req: Request) {
-  // Vercel Cron uses GET with CRON_SECRET header
-  const cronSecret = req.headers.get("authorization");
-  const secret = process.env.CRON_SECRET || process.env.INTERNAL_EXECUTION_SECRET;
+  try {
+    const authHeader = req.headers.get("authorization");
+    const secret = process.env.CRON_SECRET || process.env.INTERNAL_EXECUTION_SECRET;
 
-  if (!secret || cronSecret !== `Bearer ${secret}`) {
+    if (!secret || authHeader !== `Bearer ${secret}`) {
+      return NextResponse.json(
+        { success: false, error: "UNAUTHORIZED" },
+        { status: 401 }
+      );
+    }
+
+    const result = await processScheduledFollowUps(20);
+
+    return NextResponse.json({
+      success: true,
+      status: "cron_complete",
+      ...result,
+    }, { status: 200 });
+
+  } catch (err: any) {
     return NextResponse.json(
-      { success: false, error: "UNAUTHORIZED" },
-      { status: 401 }
+      { success: false, error: "CRON_ERROR", message: err.message || "Unknown error" },
+      { status: 500 }
     );
   }
-
-  const result = await processScheduledFollowUps(20);
-
-  return NextResponse.json({
-    success: true,
-    status: "cron_complete",
-    ...result,
-  }, { status: 200 });
 }

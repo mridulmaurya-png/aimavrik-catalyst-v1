@@ -19,11 +19,22 @@ import { executeEvent } from "@/lib/execution/router";
 import { scheduleFollowUp } from "@/lib/execution/scheduler";
 import { TRIGGER_EVENTS } from "@/lib/execution/types";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+export const runtime = "nodejs";
 
 function getServiceClient() {
-  return createClient(supabaseUrl, supabaseServiceKey);
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  return createClient(url, key);
+}
+
+function extractApiKey(req: Request): string | null {
+  const authHeader = req.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    return authHeader.slice(7);
+  }
+  const xApiKey = req.headers.get("x-api-key");
+  if (xApiKey) return xApiKey;
+  return null;
 }
 
 export async function POST(req: Request) {
@@ -171,22 +182,8 @@ export async function POST(req: Request) {
 
   } catch (err: any) {
     return NextResponse.json(
-      { success: false, error: "PROCESSING_ERROR", message: err.message },
+      { success: false, error: "PROCESSING_ERROR", message: err.message || "Unknown error" },
       { status: 500 }
     );
   }
-}
-
-function extractApiKey(req: Request): string | null {
-  // Check Authorization header (Bearer token)
-  const authHeader = req.headers.get("authorization");
-  if (authHeader?.startsWith("Bearer ")) {
-    return authHeader.slice(7);
-  }
-
-  // Check x-api-key header
-  const xApiKey = req.headers.get("x-api-key");
-  if (xApiKey) return xApiKey;
-
-  return null;
 }
