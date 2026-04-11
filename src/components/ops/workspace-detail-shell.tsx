@@ -39,7 +39,20 @@ import {
   checkGoLiveReadiness,
   addOpsNote,
   deleteOpsNote,
+  toggleFeatureFlag,
+  triggerInsightGeneration,
+  updateInsightStatus,
 } from "@/app/actions/ops-actions";
+import {
+  FEATURE_FLAGS,
+  FEATURE_FLAG_LABELS,
+  FEATURE_FLAG_DESCRIPTIONS,
+  type FeatureFlagKey,
+} from "@/lib/config/feature-flags";
+import {
+  getInsightLabel,
+  getInsightPriorityColor,
+} from "@/lib/intelligence/types";
 import {
   ArrowLeft,
   Building2,
@@ -70,6 +83,12 @@ import {
   TestTube,
   Rocket,
   Edit2,
+  ToggleLeft,
+  ToggleRight,
+  Lightbulb,
+  Brain,
+  Globe,
+  Eye,
 } from "lucide-react";
 
 interface WorkspaceDetailData {
@@ -88,9 +107,11 @@ interface WorkspaceDetailData {
   };
   playbooks: any[];
   executionRuns: any[];
+  featureFlags: any[];
+  insights: any[];
 }
 
-type TabKey = "overview" | "integrations" | "automations" | "execution" | "notes" | "history";
+type TabKey = "overview" | "integrations" | "automations" | "execution" | "intelligence" | "flags" | "notes" | "history";
 
 export function WorkspaceDetailShell({ data }: { data: WorkspaceDetailData }) {
   const router = useRouter();
@@ -126,6 +147,8 @@ export function WorkspaceDetailShell({ data }: { data: WorkspaceDetailData }) {
     { key: "integrations" as TabKey, label: `Integrations (${data.integrations.length})`, icon: Plug },
     { key: "automations" as TabKey, label: `Automations (${data.automations.length})`, icon: Zap },
     { key: "execution" as TabKey, label: `Execution (${(data.executionRuns || []).length})`, icon: Activity },
+    { key: "intelligence" as TabKey, label: `Intelligence (${(data.insights || []).length})`, icon: Brain },
+    { key: "flags" as TabKey, label: "Feature Flags", icon: ToggleLeft },
     { key: "notes" as TabKey, label: `Notes (${data.notes.length})`, icon: MessageSquare },
     { key: "history" as TabKey, label: "History", icon: History },
   ];
@@ -261,6 +284,12 @@ export function WorkspaceDetailShell({ data }: { data: WorkspaceDetailData }) {
       )}
       {activeTab === "execution" && (
         <ExecutionTab runs={data.executionRuns || []} automations={data.automations} businessId={biz.id} />
+      )}
+      {activeTab === "intelligence" && (
+        <IntelligenceTab insights={data.insights || []} businessId={biz.id} />
+      )}
+      {activeTab === "flags" && (
+        <FeatureFlagsTab flags={data.featureFlags || []} businessId={biz.id} />
       )}
       {activeTab === "notes" && (
         <NotesTab notes={data.notes} businessId={biz.id} />
@@ -1364,6 +1393,249 @@ function HistoryTab({ history }: { history: any[] }) {
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════
+// INTELLIGENCE TAB
+// ═══════════════════════════════════════════════
+
+function IntelligenceTab({ insights, businessId }: { insights: any[]; businessId: string }) {
+  const router = useRouter();
+  const [loading, setLoading] = React.useState(false);
+  const [filter, setFilter] = React.useState<string>("all");
+
+  const filteredInsights = filter === "all"
+    ? insights
+    : insights.filter((i: any) => i.status === filter);
+
+  const openCount = insights.filter((i: any) => i.status === "open").length;
+  const highCount = insights.filter((i: any) => i.priority === "critical" || i.priority === "high").length;
+
+  const handleGenerate = async () => {
+    setLoading(true);
+    try {
+      const result = await triggerInsightGeneration(businessId);
+      alert(`Intelligence run complete:\n• Insights generated: ${result.insights_generated}\n• Events created: ${result.events_created}\n• Festivals found: ${result.festivals_found}`);
+      router.refresh();
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStatusChange = async (insightId: string, status: string) => {
+    setLoading(true);
+    try {
+      await updateInsightStatus(insightId, businessId, status);
+      router.refresh();
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h3 className="text-heading-4 font-bold">Insights Board</h3>
+          <Badge variant={openCount > 0 ? "warning" : "neutral"} className="text-[9px]">{openCount} open</Badge>
+          {highCount > 0 && <Badge variant="error" className="text-[9px]">{highCount} high priority</Badge>}
+        </div>
+        <Button variant="secondary" className="h-9 text-body-sm gap-2" onClick={handleGenerate} disabled={loading}>
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
+          Run Intelligence
+        </Button>
+      </div>
+
+      {/* Filters */}
+      <div className="flex gap-1">
+        {["all", "open", "acknowledged", "acted", "dismissed"].map(s => (
+          <button
+            key={s}
+            onClick={() => setFilter(s)}
+            className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors ${
+              filter === s
+                ? "bg-brand-primary text-white"
+                : "bg-brand-bg-primary/30 text-brand-text-tertiary hover:text-brand-text-secondary"
+            }`}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+
+      {/* Insights List */}
+      <div className="space-y-3">
+        {filteredInsights.length === 0 && (
+          <Card variant="elevated" className="p-12 text-center text-brand-text-tertiary text-body-sm">
+            No insights to display. Run Intelligence to generate.
+          </Card>
+        )}
+
+        {filteredInsights.map((insight: any) => (
+          <Card key={insight.id} variant="elevated" className="p-4 space-y-2">
+            <div className="flex items-start gap-3">
+              <div className={`p-2 rounded-lg shrink-0 ${
+                insight.priority === "critical" ? "bg-functional-error/10 text-functional-error" :
+                insight.priority === "high" ? "bg-functional-warning/10 text-functional-warning" :
+                "bg-brand-primary/10 text-brand-primary"
+              }`}>
+                <Lightbulb className="w-4 h-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant={getInsightPriorityColor(insight.priority)} className="text-[9px]">
+                    {insight.priority}
+                  </Badge>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">
+                    {getInsightLabel(insight.type)}
+                  </span>
+                  {insight.lead_id && (
+                    <span className="text-[9px] font-mono text-brand-text-tertiary">
+                      Lead: {insight.lead_id.substring(0, 8)}…
+                    </span>
+                  )}
+                  <span className="text-[10px] text-brand-text-tertiary ml-auto">
+                    {new Date(insight.created_at).toLocaleString()}
+                  </span>
+                </div>
+                <p className="text-body-sm text-brand-text-primary mt-1">{insight.message}</p>
+                {insight.recommended_action && (
+                  <p className="text-[11px] text-brand-text-secondary italic mt-1">💡 {insight.recommended_action}</p>
+                )}
+              </div>
+              <div className="flex gap-1 shrink-0">
+                {insight.status === "open" && (
+                  <>
+                    <button
+                      onClick={() => handleStatusChange(insight.id, "acknowledged")}
+                      className="p-1.5 rounded hover:bg-brand-primary/10 text-brand-text-tertiary hover:text-brand-primary"
+                      title="Acknowledge"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleStatusChange(insight.id, "acted")}
+                      className="p-1.5 rounded hover:bg-functional-success/10 text-functional-success"
+                      title="Mark Acted"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleStatusChange(insight.id, "dismissed")}
+                      className="p-1.5 rounded hover:bg-functional-error/10 text-brand-text-tertiary hover:text-functional-error"
+                      title="Dismiss"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </>
+                )}
+                <Badge
+                  variant={insight.status === "open" ? "warning" : insight.status === "acted" ? "success" : "neutral"}
+                  className="text-[9px] h-6"
+                >
+                  {insight.status}
+                </Badge>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════
+// FEATURE FLAGS TAB
+// ═══════════════════════════════════════════════
+
+function FeatureFlagsTab({ flags, businessId }: { flags: any[]; businessId: string }) {
+  const router = useRouter();
+  const [loading, setLoading] = React.useState<string | null>(null);
+
+  const flagMap: Record<string, boolean> = {};
+  for (const f of flags) {
+    flagMap[f.flag_key] = f.enabled;
+  }
+
+  const handleToggle = async (flagKey: string, currentValue: boolean) => {
+    const newValue = !currentValue;
+    const action = newValue ? "ENABLE" : "DISABLE";
+    if (!confirm(`${action} "${FEATURE_FLAG_LABELS[flagKey as FeatureFlagKey]}" for this workspace?`)) return;
+
+    setLoading(flagKey);
+    try {
+      await toggleFeatureFlag(businessId, flagKey, newValue);
+      alert(`Flag ${newValue ? "enabled" : "disabled"} successfully.`);
+      router.refresh();
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  return (
+    <div className="space-y-4 max-w-3xl">
+      <div className="flex items-center justify-between">
+        <h3 className="text-heading-4 font-bold">Feature Flags</h3>
+        <span className="text-[11px] text-brand-text-tertiary">
+          {Object.values(flagMap).filter(Boolean).length} of {FEATURE_FLAGS.length} enabled
+        </span>
+      </div>
+
+      <div className="space-y-2">
+        {FEATURE_FLAGS.map((flagKey) => {
+          const enabled = flagMap[flagKey] || false;
+          const isLoading = loading === flagKey;
+          const flagMeta = flags.find((f: any) => f.flag_key === flagKey);
+
+          return (
+            <Card key={flagKey} variant="elevated" className={`p-4 transition-colors ${enabled ? "border-functional-success/30" : ""}`}>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => handleToggle(flagKey, enabled)}
+                  disabled={isLoading}
+                  className="shrink-0"
+                >
+                  {isLoading ? (
+                    <Loader2 className="w-6 h-6 animate-spin text-brand-text-tertiary" />
+                  ) : enabled ? (
+                    <ToggleRight className="w-6 h-6 text-functional-success" />
+                  ) : (
+                    <ToggleLeft className="w-6 h-6 text-brand-text-tertiary" />
+                  )}
+                </button>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-body-sm font-bold text-brand-text-primary">
+                      {FEATURE_FLAG_LABELS[flagKey]}
+                    </span>
+                    <Badge variant={enabled ? "success" : "neutral"} className="text-[9px]">
+                      {enabled ? "ON" : "OFF"}
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-brand-text-tertiary mt-0.5">
+                    {FEATURE_FLAG_DESCRIPTIONS[flagKey]}
+                  </p>
+                  {flagMeta?.updated_at && (
+                    <p className="text-[9px] text-brand-text-tertiary mt-1">
+                      Last changed: {new Date(flagMeta.updated_at).toLocaleString()}{" "}
+                      {flagMeta.updated_by && `by ${flagMeta.updated_by}`}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

@@ -18,6 +18,7 @@ import { createClient } from "@supabase/supabase-js";
 import { executeEvent } from "@/lib/execution/router";
 import { scheduleFollowUp } from "@/lib/execution/scheduler";
 import { TRIGGER_EVENTS } from "@/lib/execution/types";
+import { isFeatureEnabled } from "@/lib/config/feature-flags";
 
 export const runtime = "nodejs";
 
@@ -126,6 +127,10 @@ export async function POST(req: Request) {
       }
     }
 
+    // ─── Safe language/region enrichment (Phase 1) ───
+    const language = payload.language || body.language || null;
+    const region = payload.region || body.region || null;
+
     // ─── Route through managed execution engine ───
     const results = await executeEvent({
       business_id,
@@ -137,6 +142,9 @@ export async function POST(req: Request) {
         _entity_type: entity_type,
         _source: source,
         _ingested_at: new Date().toISOString(),
+        // V2: language/region context (null-safe, no enforcement)
+        language: language || undefined,
+        region: region || undefined,
       },
     });
 

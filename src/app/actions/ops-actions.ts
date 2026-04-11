@@ -6,6 +6,10 @@ import { revalidatePath } from "next/cache";
 import type { WorkspaceLifecycleStatus } from "@/lib/config/ops-constants";
 import { executeEvent } from "@/lib/execution/router";
 import { scheduleFollowUp, processScheduledFollowUps } from "@/lib/execution/scheduler";
+import { getAllFlags, setFeatureFlag, FEATURE_FLAGS, type FeatureFlagKey } from "@/lib/config/feature-flags";
+import { generateInsights } from "@/lib/intelligence/insight-engine";
+import { processInsightEvents } from "@/lib/intelligence/insight-bridge";
+import { checkFestiveCalendar } from "@/lib/intelligence/festive-engine";
 
 // ═══════════════════════════════════════════════════
 // AUDIT LOGGING HELPER
@@ -612,6 +616,8 @@ export async function getWorkspaceDetail(businessId: string) {
     lastActionResult,
     playbooksResult,
     executionRunsResult,
+    flagsResult,
+    insightsResult,
   ] = await Promise.all([
     // Business + onboarding + settings + owner
     supabase
@@ -703,6 +709,20 @@ export async function getWorkspaceDetail(businessId: string) {
       .eq("business_id", businessId)
       .order("created_at", { ascending: false })
       .limit(50),
+
+    // Feature flags
+    supabase
+      .from("feature_flags")
+      .select("flag_key, enabled, updated_at, updated_by")
+      .eq("business_id", businessId),
+
+    // Insights (latest 100)
+    supabase
+      .from("insights")
+      .select("*")
+      .eq("business_id", businessId)
+      .order("created_at", { ascending: false })
+      .limit(100),
   ]);
 
   if (bizResult.error) return { business: null };
@@ -723,6 +743,8 @@ export async function getWorkspaceDetail(businessId: string) {
     },
     playbooks: playbooksResult.data || [],
     executionRuns: executionRunsResult.data || [],
+    featureFlags: flagsResult.data || [],
+    insights: insightsResult.data || [],
   };
 }
 
@@ -970,4 +992,99 @@ export async function generateWorkspaceApiKey(businessId: string) {
 
   revalidatePath(`/ops/workspaces/${businessId}`);
   return { success: true, api_key: apiKey };
+}
+
+// ═══════════════════════════════════════════════════
+// FEATURE FLAGS
+// ═══════════════════════════════════════════════════
+
+export async function getWorkspaceFlags(businessId: string) {
+  await requireAdmin();
+  return getAllFlags(businessId);
+}
+
+export async function toggleFeatureFlag(businessId: string, flagKey: string, enabled: boolean) {
+  const admin = await requireAdmin();
+  const supabase = await createAdminClient();
+
+  if (!FEATURE_FLAGS.includes(flagKey as FeatureFlagKey)) {
+    throw new Error(`Unknown feature flag: ${flagKey}`);
+  }
+
+  const result = await setFeatureFlag(
+    businessId,
+    flagKey as FeatureFlagKey,
+    enabled,
+    admin.email || "unknown"
+  );
+
+  if (!result.success) throw new Error(result.error);
+
+  await logOpsAudit(supabase, businessId, admin.email || "unknown", "FEATURE_FLAG_TOGGLED", `flag:${flagKey}`, {
+    flag: flagKey,
+    enabled,
+  });
+
+  revalidatePath(`/ops/workspaces/${businessId}`);
+  return { success: true };
+}
+
+// ═══════════════════════════════════════════════════
+// INTELLIGENCE ACTIONS
+// ═══════════════════════════════════════════════════
+
+export async function triggerInsightGeneration(businessId: string) {
+  const admin = await requireAdmin();
+  const supabase = await createAdminClient();
+
+  const insights = await generateInsights(businessId);
+  const bridge = await processInsightEvents(businessId);
+  const festive = await checkFestiveCalendar(businessId);
+
+  await logOpsAudit(supabase, businessId, admin.email || "unknown", "INTELLIGENCE_TRIGGERED", `workspace:${businessId}`, {
+    insights_generated: insights.generated,
+    events_created: bridge.eventsCreated,
+    festivals_found: festive.festivalsFound,
+  });
+
+  revalidatePath(`/ops/workspaces/${businessId}`);
+  return {
+    success: true,
+    insights_generated: insights.generated,
+    events_created: bridge.eventsCreated,
+    festivals_found: festive.festivalsFound,
+  };
+}
+
+export async function getWorkspaceInsights(businessId: string) {
+  await requireAdmin();
+  const supabase = await createAdminClient();
+
+  const { data } = await supabase
+    .from("insights")
+    .select("*")
+    .eq("business_id", businessId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  return data || [];
+}
+
+export async function updateInsightStatus(insightId: string, businessId: string, status: string) {
+  const admin = await requireAdmin();
+  const supabase = await createAdminClient();
+
+  const { error } = await supabase
+    .from("insights")
+    .update({
+      status,
+      acted_at: status === "acted" ? new Date().toISOString() : undefined,
+      acted_by: status === "acted" ? admin.email : undefined,
+    })
+    .eq("id", insightId);
+
+  if (error) throw new Error(`Failed to update insight: ${error.message}`);
+
+  revalidatePath(`/ops/workspaces/${businessId}`);
+  return { success: true };
 }

@@ -69,6 +69,10 @@ export const TRIGGER_EVENTS = [
   'lead_submitted',
   'no_response_24h',
   'custom_event',
+  // V2 engagement events
+  'language_mismatch_detected',
+  'festive_trigger',
+  'region_based_opportunity',
 ] as const;
 
 export type TriggerEvent = typeof TRIGGER_EVENTS[number];

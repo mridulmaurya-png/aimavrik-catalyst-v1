@@ -125,9 +125,13 @@ export function getIntegrationStatusColor(status: string): "success" | "warning"
 export const AUTOMATION_TYPES = [
   "lead_scoring",
   "lead_routing", 
+  "lead_response",
+  "follow_up",
   "abandoned_recovery",
   "missed_lead_followup",
   "reactivation",
+  "re_engagement",
+  "festive_campaign",
   "admin_alerts",
   "custom_playbook",
 ] as const;
@@ -162,6 +166,10 @@ export const TRIGGER_EVENTS = [
   "lead_submitted",
   "no_response_24h",
   "custom_event",
+  // V2 engagement events
+  "language_mismatch_detected",
+  "festive_trigger",
+  "region_based_opportunity",
 ] as const;
 
 export type TriggerEvent = typeof TRIGGER_EVENTS[number];
@@ -182,6 +190,9 @@ export function getTriggerEventLabel(event: string): string {
     lead_submitted: "Lead Submitted",
     no_response_24h: "No Response 24h",
     custom_event: "Custom Event",
+    language_mismatch_detected: "Language Mismatch",
+    festive_trigger: "Festive Trigger",
+    region_based_opportunity: "Region Opportunity",
   };
   return map[event] || event;
 }
@@ -190,9 +201,13 @@ export function getAutomationLabel(type: string): string {
   const map: Record<string, string> = {
     lead_scoring: "Lead Scoring",
     lead_routing: "Lead Routing",
+    lead_response: "Lead Response",
+    follow_up: "Follow-Up",
     abandoned_recovery: "Abandoned Recovery",
     missed_lead_followup: "Missed Lead Follow-Up",
     reactivation: "Reactivation",
+    re_engagement: "Re-Engagement",
+    festive_campaign: "Festive Campaign",
     admin_alerts: "Admin Alerts",
     custom_playbook: "Custom Playbook",
   };
