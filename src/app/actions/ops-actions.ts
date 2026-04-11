@@ -347,6 +347,7 @@ export async function updateAutomation(
   automationId: string,
   businessId: string,
   data: {
+    automation_name?: string;
     is_active?: boolean;
     mode?: string;
     health?: string;
@@ -375,6 +376,7 @@ export async function updateAutomation(
     .single();
 
   const payload: Record<string, any> = { updated_at: new Date().toISOString() };
+  if (data.automation_name !== undefined) payload.automation_name = data.automation_name;
   if (data.is_active !== undefined) payload.is_active = data.is_active;
   if (data.mode !== undefined) payload.mode = data.mode;
   if (data.health !== undefined) payload.health = data.health;

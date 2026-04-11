@@ -69,6 +69,7 @@ import {
   Archive,
   TestTube,
   Rocket,
+  Edit2,
 } from "lucide-react";
 
 interface WorkspaceDetailData {
@@ -532,6 +533,52 @@ function IntegrationsTab({ integrations, businessId }: { integrations: any[]; bu
   const [newWebhook, setNewWebhook] = React.useState("");
   const [newRef, setNewRef] = React.useState("");
 
+  const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [editForm, setEditForm] = React.useState({
+    type: "",
+    provider: "",
+    status: "",
+    health: "",
+    notes: "",
+    execution_mode: "",
+    webhook_url: "",
+  });
+
+  const handleEditMode = (integ: any) => {
+    setEditForm({
+      type: integ.integration_type || "",
+      provider: integ.provider || "",
+      status: integ.status || "pending",
+      health: integ.health || "unknown",
+      notes: integ.notes || "",
+      execution_mode: integ.execution_mode || "internal",
+      webhook_url: integ.webhook_url || "",
+    });
+    setEditingId(integ.id);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId) return;
+    setLoading(true);
+    try {
+      await updateIntegration(editingId, businessId, {
+        status: editForm.status,
+        health: editForm.health,
+        notes: editForm.notes || undefined,
+        execution_mode: editForm.execution_mode,
+        webhook_url: editForm.webhook_url || undefined,
+        provider: editForm.provider || undefined,
+      });
+      alert("Integration updated successfully!");
+      setEditingId(null);
+      router.refresh();
+    } catch (e: any) {
+      alert(`Error updating integration: ${e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleAdd = async () => {
     if (!newProvider) return alert("Provider is required");
     setLoading(true);
@@ -653,6 +700,72 @@ function IntegrationsTab({ integrations, businessId }: { integrations: any[]; bu
         </Card>
       )}
 
+      {/* Edit Form Modal */}
+      {editingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <Card variant="elevated" className="p-6 w-full max-w-2xl space-y-6">
+            <div className="flex justify-between items-center border-b border-brand-border/40 pb-4">
+              <h3 className="text-heading-4 font-bold">Edit Integration</h3>
+              <button onClick={() => setEditingId(null)} className="p-1 hover:bg-white/5 rounded text-brand-text-tertiary hover:text-brand-text-secondary transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-5">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Type</label>
+                <select value={editForm.type} disabled className="input-base h-10 text-body-sm opacity-60">
+                  <option value={editForm.type}>{getIntegrationLabel(editForm.type)}</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Provider</label>
+                <input value={editForm.provider} onChange={e => setEditForm(f => ({...f, provider: e.target.value}))} className="input-base h-10 text-body-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Status</label>
+                <select value={editForm.status} onChange={e => setEditForm(f => ({...f, status: e.target.value}))} className="input-base h-10 text-body-sm">
+                  {INTEGRATION_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Health</label>
+                <select value={editForm.health} onChange={e => setEditForm(f => ({...f, health: e.target.value}))} className="input-base h-10 text-body-sm">
+                  <option value="unknown">unknown</option>
+                  <option value="healthy">healthy</option>
+                  <option value="degraded">degraded</option>
+                  <option value="critical">critical</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Execution Mode</label>
+                <select value={editForm.execution_mode} onChange={e => setEditForm(f => ({...f, execution_mode: e.target.value}))} className="input-base h-10 text-body-sm">
+                  <option value="internal">Internal</option>
+                  <option value="n8n">n8n Workflow</option>
+                  <option value="external_api">External API</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Webhook / API URL</label>
+                <input value={editForm.webhook_url} onChange={e => setEditForm(f => ({...f, webhook_url: e.target.value}))} className="input-base h-10 text-body-sm" />
+              </div>
+              <div className="col-span-2 space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Notes</label>
+                <textarea value={editForm.notes} onChange={e => setEditForm(f => ({...f, notes: e.target.value}))} className="input-base py-2 min-h-[80px] text-body-sm" />
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3 pt-4 border-t border-brand-border/40">
+              <Button variant="ghost" onClick={() => setEditingId(null)} disabled={loading}>Cancel</Button>
+              <Button variant="primary" onClick={handleSaveEdit} disabled={loading}>
+                {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Save Changes
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* Integrations Table */}
       <Card variant="elevated" className="overflow-hidden">
         <table className="table-premium w-full">
@@ -724,6 +837,9 @@ function IntegrationsTab({ integrations, businessId }: { integrations: any[]; bu
                         <X className="w-3.5 h-3.5" />
                       </button>
                     )}
+                    <button onClick={() => handleEditMode(integ)} className="p-1.5 rounded hover:bg-brand-text-tertiary/20 text-brand-text-tertiary hover:text-white" title="Edit">
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
                     <button onClick={() => handleDelete(integ.id)} className="p-1.5 rounded hover:bg-functional-error/10 text-functional-error" title="Delete">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -761,6 +877,50 @@ function AutomationsTab({ automations, businessId }: { automations: any[]; busin
     fallback_action: "block",
     required_integration_type: "",
   });
+
+  const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [editForm, setEditForm] = React.useState({
+    name: "",
+    trigger_event: "",
+    execution_engine: "",
+    output_channel: "",
+    status: "",
+    mode: "test"
+  });
+
+  const handleEditMode = (auto: any) => {
+    setEditForm({
+      name: auto.automation_name || "",
+      trigger_event: auto.trigger_event || "",
+      execution_engine: auto.execution_engine || "internal",
+      output_channel: auto.output_channel || "internal_task",
+      status: auto.status || "draft",
+      mode: auto.mode || "test",
+    });
+    setEditingId(auto.id);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId) return;
+    setLoading(true);
+    try {
+      await updateAutomation(editingId, businessId, {
+        automation_name: editForm.name,
+        trigger_event: editForm.trigger_event,
+        execution_engine: editForm.execution_engine,
+        output_channel: editForm.output_channel,
+        status: editForm.status,
+        mode: editForm.mode,
+      });
+      alert("Automation updated successfully!");
+      setEditingId(null);
+      router.refresh();
+    } catch (e: any) {
+      alert(`Error updating automation: ${e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAdd = async () => {
     if (!form.name) return alert("Automation name is required");
@@ -915,6 +1075,72 @@ function AutomationsTab({ automations, businessId }: { automations: any[]; busin
         </Card>
       )}
 
+      {/* Edit Form Modal */}
+      {editingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <Card variant="elevated" className="p-6 w-full max-w-2xl space-y-6">
+            <div className="flex justify-between items-center border-b border-brand-border/40 pb-4">
+              <h3 className="text-heading-4 font-bold">Edit Automation</h3>
+              <button onClick={() => setEditingId(null)} className="p-1 hover:bg-white/5 rounded text-brand-text-tertiary hover:text-brand-text-secondary transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-5">
+              <div className="space-y-1.5 col-span-2 md:col-span-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Name</label>
+                <input value={editForm.name} onChange={e => setEditForm(f => ({...f, name: e.target.value}))} className="input-base h-10 text-body-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Trigger Event</label>
+                <select value={editForm.trigger_event} onChange={e => setEditForm(f => ({...f, trigger_event: e.target.value}))} className="input-base h-10 text-body-sm">
+                  {TRIGGER_EVENTS.map(t => <option key={t} value={t}>{getTriggerEventLabel(t)}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Execution Engine</label>
+                <select value={editForm.execution_engine} onChange={e => setEditForm(f => ({...f, execution_engine: e.target.value}))} className="input-base h-10 text-body-sm">
+                  {EXECUTION_ENGINES.map(e => <option key={e} value={e}>{e}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Output Channel</label>
+                <select value={editForm.output_channel} onChange={e => setEditForm(f => ({...f, output_channel: e.target.value}))} className="input-base h-10 text-body-sm">
+                  {OUTPUT_CHANNELS.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Status</label>
+                <select value={editForm.status} onChange={e => setEditForm(f => ({...f, status: e.target.value}))} className="input-base h-10 text-body-sm">
+                  <option value="draft">draft</option>
+                  <option value="review">review</option>
+                  <option value="approved">approved</option>
+                  <option value="active">active</option>
+                  <option value="paused">paused</option>
+                  <option value="failed">failed</option>
+                  <option value="archived">archived</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Mode</label>
+                <select value={editForm.mode} onChange={e => setEditForm(f => ({...f, mode: e.target.value}))} className="input-base h-10 text-body-sm">
+                  <option value="test">Test</option>
+                  <option value="live">Live</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3 pt-4 border-t border-brand-border/40">
+              <Button variant="ghost" onClick={() => setEditingId(null)} disabled={loading}>Cancel</Button>
+              <Button variant="primary" onClick={handleSaveEdit} disabled={loading}>
+                {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Save Changes
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
       <Card variant="elevated" className="overflow-hidden">
         <table className="table-premium w-full">
           <thead>
@@ -999,6 +1225,10 @@ function AutomationsTab({ automations, businessId }: { automations: any[]; busin
                         <Archive className="w-3.5 h-3.5" />
                       </button>
                     )}
+                    {/* Edit */}
+                    <button onClick={() => handleEditMode(auto)} className="p-1.5 rounded hover:bg-brand-text-tertiary/20 text-brand-text-tertiary hover:text-white" title="Edit">
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
                     {/* Delete */}
                     <button onClick={() => handleDelete(auto.id)} className="p-1.5 rounded hover:bg-functional-error/10 text-functional-error" title="Delete">
                       <Trash2 className="w-3.5 h-3.5" />
