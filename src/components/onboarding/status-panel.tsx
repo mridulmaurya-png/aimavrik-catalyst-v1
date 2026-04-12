@@ -19,15 +19,21 @@ interface StatusPanelProps {
 
 export function OnboardingStatusPanel({ businessStatus }: StatusPanelProps) {
   const steps = [
-    { id: 'signup_received', label: 'Signup Received', icon: ClipboardCheck, desc: 'Setup your workspace' },
-    { id: 'onboarding_submitted', label: 'Requirements', icon: Search, desc: 'Client info submitted' },
-    { id: 'under_review', label: 'Managed Review', icon: Settings, desc: 'Ops is validating setup' },
-    { id: 'setup_in_progress', label: 'System Setup', icon: Activity, desc: 'Configuring AI engines' },
-    { id: 'active', label: 'Active', icon: Activity, desc: 'Live Orchestration' }
+    { id: 'connect_source', label: 'Connect Source', icon: ClipboardCheck, desc: 'Webhooks & Lead Intake' },
+    { id: 'verify_channels', label: 'Verify Channels', icon: Search, desc: 'WhatsApp & Email Prep' },
+    { id: 'system_active', label: 'System Working', icon: Activity, desc: 'AI Orchestration Live' }
   ];
 
-  const currentStepIndex = steps.findIndex(s => s.id === businessStatus);
-  const displayIndex = currentStepIndex === -1 ? (businessStatus === 'active' ? 4 : 0) : currentStepIndex;
+  // Mapping existing database statuses to these 3 visual steps
+  const statusMap: Record<string, number> = {
+    'signup_received': -1, // Nothing completed
+    'onboarding_submitted': 0, // Connect source completed
+    'under_review': 1, // Verify channels in progress
+    'setup_in_progress': 1,
+    'active': 2 // Everything completed
+  };
+
+  const displayIndex = statusMap[businessStatus] ?? -1;
 
   return (
     <Card variant="elevated" className="overflow-hidden bg-brand-bg-secondary border-brand-border/40 shadow-glow animate-in slide-in-from-top-4 duration-500">
@@ -64,22 +70,26 @@ export function OnboardingStatusPanel({ businessStatus }: StatusPanelProps) {
         <div className="bg-brand-bg-primary/50 border-l border-brand-border/30 p-8 min-w-[320px]">
            <div className="space-y-6">
               {steps.map((s, idx) => {
-                const isComplete = idx < displayIndex || (businessStatus === 'active' && idx <= 4);
-                const isActive = idx === displayIndex && businessStatus !== 'active';
+                const isComplete = idx <= displayIndex;
+                const isActive = idx === displayIndex + 1;
                 const Icon = s.icon;
                 
                 return (
-                  <div key={s.id} className={`flex items-start gap-4 transition-all ${idx > displayIndex && businessStatus !== 'active' ? 'opacity-30' : ''}`}>
+                  <div key={s.id} className={`flex items-start gap-4 transition-all ${idx > displayIndex + 1 ? 'opacity-30' : ''}`}>
                     <div className="relative pt-1">
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center border ${isComplete ? 'bg-brand-primary border-brand-primary text-white shadow-glow' : (isActive ? 'border-brand-primary text-brand-primary' : 'border-brand-border')}`}>
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center border ${isComplete ? 'bg-functional-success border-functional-success text-white shadow-glow' : (isActive ? 'border-brand-primary text-brand-primary animate-pulse' : 'border-brand-border')}`}>
                             {isComplete ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : <Icon className="w-3.5 h-3.5" />}
                         </div>
                         {idx !== steps.length - 1 && (
-                            <div className={`absolute left-3 top-7 w-[1px] h-6 bg-brand-border/40`} />
+                            <div className={`absolute left-3 top-7 w-[1px] h-6 ${isComplete ? 'bg-functional-success' : 'bg-brand-border/40'}`} />
                         )}
                     </div>
                     <div className="space-y-0.5">
-                        <p className={`text-[11px] font-bold uppercase tracking-widest ${isComplete || isActive ? 'text-brand-text-primary' : 'text-brand-text-tertiary'}`}>{s.label}</p>
+                        <div className="flex items-center gap-2">
+                           <p className={`text-[11px] font-bold uppercase tracking-widest ${isComplete || isActive ? 'text-brand-text-primary' : 'text-brand-text-tertiary'}`}>{s.label}</p>
+                           {isComplete && <span className="text-[8px] font-bold bg-functional-success/10 text-functional-success px-1 rounded">COMPLETED</span>}
+                           {isActive && <span className="text-[8px] font-bold bg-brand-primary/10 text-brand-primary px-1 rounded animate-pulse">PENDING</span>}
+                        </div>
                         <p className="text-[10px] text-brand-text-tertiary leading-none">{s.desc}</p>
                     </div>
                   </div>

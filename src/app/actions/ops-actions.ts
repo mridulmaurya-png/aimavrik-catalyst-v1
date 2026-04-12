@@ -97,6 +97,7 @@ export async function addIntegration(
     status: string;
     notes?: string;
     config_json?: Record<string, any>;
+    credentials?: Record<string, any>;
     execution_mode?: string;
     connection_reference?: string;
     webhook_url?: string;
@@ -114,6 +115,7 @@ export async function addIntegration(
     status: data.status,
     notes: data.notes || null,
     config_json: data.config_json || {},
+    credentials: data.credentials || {},
     execution_mode: data.execution_mode || "internal",
     connection_reference: data.connection_reference || null,
     webhook_url: data.webhook_url || null,
@@ -149,6 +151,7 @@ export async function updateIntegration(
     webhook_url?: string;
     api_base_url?: string;
     external_account_id?: string;
+    credentials?: any;
   }
 ) {
   const admin = await requireAdmin();
@@ -175,6 +178,7 @@ export async function updateIntegration(
   if (data.webhook_url !== undefined) payload.webhook_url = data.webhook_url;
   if (data.api_base_url !== undefined) payload.api_base_url = data.api_base_url;
   if (data.external_account_id !== undefined) payload.external_account_id = data.external_account_id;
+  if (data.credentials !== undefined) payload.credentials = data.credentials;
 
   const { error } = await supabase
     .from("client_integrations")
@@ -229,13 +233,12 @@ export async function testIntegrationConnection(integrationId: string, businessI
 
   let result: { status: "healthy" | "degraded" | "critical" | "unknown", message: string } = { status: "unknown", message: "No test logic for this provider yet." };
 
-  if (integ.integration_type === "email" && integ.provider === "Resend") {
-    const { data: biz } = await supabase.from("business_settings").select("config_json").eq("business_id", businessId).single();
-    const config = biz?.config_json as any || {};
-    if (config.resend_api_key && config.resend_from_email) {
-      result = { status: "healthy", message: "Resend configuration found." };
+  if (integ.integration_type === "email") {
+    const config = integ.credentials || {};
+    if (config.api_key && config.from_email) {
+      result = { status: "healthy", message: "Email configuration validated." };
     } else {
-      result = { status: "critical", message: "Resend API Key or From Email missing in settings." };
+      result = { status: "critical", message: "API Key or From Email missing in credentials." };
     }
   } else if (integ.integration_type === "n8n" || integ.execution_mode === "n8n") {
     const url = integ.webhook_url || (integ.api_base_url as string);
@@ -254,12 +257,18 @@ export async function testIntegrationConnection(integrationId: string, businessI
       result = { status: "critical", message: "No URL configured for n8n integration." };
     }
   } else if (integ.integration_type === "whatsapp") {
-    const { data: biz } = await supabase.from("business_settings").select("config_json").eq("business_id", businessId).single();
-    const config = biz?.config_json as any || {};
-    if (config.whatsapp_api_key && config.whatsapp_sender_id) {
-      result = { status: "healthy", message: "WhatsApp configuration found." };
+    const config = integ.credentials || {};
+    if (config.api_key && config.phone_number_id) {
+      result = { status: "healthy", message: "WhatsApp configuration validated." };
     } else {
-      result = { status: "critical", message: "WhatsApp API Key or Sender ID missing." };
+      result = { status: "critical", message: "API Key or Phone Number ID missing." };
+    }
+  } else if (integ.integration_type === "voice") {
+    const config = integ.credentials || {};
+    if (config.api_key && config.caller_id) {
+      result = { status: "healthy", message: "Voice configuration validated." };
+    } else {
+      result = { status: "critical", message: "API Key or Caller ID missing." };
     }
   } else if (integ.integration_type === "webhook") {
     const url = integ.webhook_url;

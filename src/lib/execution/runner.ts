@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { validateActionExecution } from "./validation";
 import { generateMessagePayload } from "./generation";
 import { sendWhatsApp, sendEmail } from "./delivery";
+import { executeN8n } from "./engines/n8n";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -184,27 +185,39 @@ async function executeSingleAction(action: any) {
     return { action_id: action.id, status: "blocked", reason };
   }
 
-  // 4. INTEGRATION GATE
-  const outputChannel = activeAuto.output_channel === 'internal' 
+  // 4. INTEGRATION GATE & FALLBACK LAYER (Phase 6)
+  let outputChannel = activeAuto.output_channel === 'internal' 
     ? (action.action_type.includes("email") ? "email" : "whatsapp")
     : activeAuto.output_channel;
 
-  const { data: integ } = await supabase
+  const { data: connectedIntegrations } = await supabase
     .from("client_integrations")
     .select("*")
     .eq("business_id", action.business_id)
-    .eq("integration_type", outputChannel === 'whatsapp' ? 'whatsapp' : 'email')
-    .eq("status", "connected")
-    .maybeSingle();
+    .in("status", ["connected", "active"]);
+
+  const allConnections = connectedIntegrations || [];
+  let integ = allConnections.find(i => i.integration_type === outputChannel);
+
+  // Fallback Logic
+  if (!integ && outputChannel === 'whatsapp') {
+    integ = allConnections.find(i => i.integration_type === 'email');
+    if (integ) outputChannel = 'email';
+  }
+  
+  if (!integ && outputChannel === 'email') {
+    integ = allConnections.find(i => i.integration_type === 'voice');
+    if (integ) outputChannel = 'voice';
+  }
 
   if (!integ) {
-    const reason = `Execution blocked. No CONNECTED integration for channel: "${outputChannel}".`;
+    const reason = `Execution blocked. No functional integration for channel: "${outputChannel}" and no fallbacks available.`;
     await supabase.from("actions").update({ status: "blocked" }).eq("id", action.id);
     await supabase.from("audit_logs").insert({
       business_id: action.business_id, 
       action_id: action.id, 
       log_type: "EXECUTION_BLOCKED",
-      log_data_json: { reason, channel: outputChannel }
+      log_data_json: { reason, requested_channel: activeAuto.output_channel, final_channel: outputChannel }
     });
     return { action_id: action.id, status: "blocked", reason };
   }
@@ -225,23 +238,40 @@ async function executeSingleAction(action: any) {
       
       const handoffPayload = {
         workspace_id: action.business_id,
-        action_id: action.id,
-        contact_id: action.contact_id,
-        playbook_id: action.playbook_id,
-        automation_id: activeAuto.id,
-        intent: intent,
+        event: intent,
+        lead: {
+          id: contact?.id || action.contact_id,
+          name: contact?.full_name || '',
+          email: contact?.email || '',
+          phone: contact?.phone || '',
+          language: contact?.language || '',
+          region: contact?.region || ''
+        },
+        context: {
+          source: action.source || 'catalyst_runner',
+          campaign: action.playbook_id || '',
+          metadata: {
+            action_id: action.id,
+            automation_id: activeAuto.id,
+            timestamp: new Date().toISOString(),
+            ...action.payload_json
+          }
+        },
         channel: outputChannel,
-        contact: { full_name: contact?.full_name, email: contact?.email, phone: contact?.phone },
-        timestamp: new Date().toISOString()
+        integration: {
+          type: outputChannel,
+          provider: integ?.provider || activeAuto.execution_engine || 'n8n'
+        },
+        trace_id: action.payload_json?.trace_id || `trc_fb_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       };
 
-      const response = await fetch(targetUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(handoffPayload)
+      const result = await executeN8n({
+        url: targetUrl,
+        payload: handoffPayload,
+        timeoutMs: 15000
       });
       
-      if (!response.ok) throw new Error(`${engine} Webhook rejected (Status ${response.status})`);
+      if (!result.success) throw new Error(`${engine} Webhook rejected: ${result.error}`);
       
       await supabase.from("actions").update({ 
         status: "handed_off", 
@@ -256,7 +286,7 @@ async function executeSingleAction(action: any) {
         log_data_json: { 
             engine,
             target_url: targetUrl,
-            response_code: response.status
+            response_code: result.response_code || 200
         }
       });
       return { action_id: action.id, status: "handed_off", handed_off_to: engine };

@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table";
+import { CreateContactModal } from "./create-contact-form";
 
 interface Contact {
   id: string;
@@ -58,6 +59,7 @@ function formatTimeAgo(timestamp: string | null): string {
 export default function ContactsClient({ contacts, currencyCode }: { contacts: Contact[]; currencyCode: string }) {
   const [search, setSearch] = React.useState("");
   const [stageFilter, setStageFilter] = React.useState("all");
+  const [showCreate, setShowCreate] = React.useState(false);
 
   const filtered = React.useMemo(() => {
     let result = contacts;
@@ -97,11 +99,16 @@ export default function ContactsClient({ contacts, currencyCode }: { contacts: C
             {contacts.length} contact{contacts.length !== 1 ? "s" : ""} in your revenue pipeline.
           </p>
         </div>
-        <Button disabled title="Manual contact addition — use CSV import or webhook" className="gap-2 h-11 px-6 opacity-50 cursor-not-allowed">
+        <Button 
+           onClick={() => setShowCreate(true)}
+           className="gap-2 h-11 px-6 cursor-pointer"
+        >
           <Users className="w-4 h-4" />
-          Add contact
+          Add Contact
         </Button>
       </div>
+      
+      {showCreate && <CreateContactModal onClose={() => setShowCreate(false)} />}
 
       {/* Search + Count Bar */}
       <div className="flex flex-col lg:flex-row gap-4">

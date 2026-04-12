@@ -13,6 +13,7 @@ import { createClient } from "@supabase/supabase-js";
 // ═══════════════════════════════════════════════════
 
 export const FEATURE_FLAGS = [
+  "is_demo",
   "language_region_enabled",
   "intelligence_layer_enabled",
   "insight_events_enabled",
@@ -24,6 +25,7 @@ export const FEATURE_FLAGS = [
 export type FeatureFlagKey = typeof FEATURE_FLAGS[number];
 
 export const FEATURE_FLAG_LABELS: Record<FeatureFlagKey, string> = {
+  is_demo: "Demo Workspace Data (Sales & Showcase Mode)",
   language_region_enabled: "Language & Region Data Collection",
   intelligence_layer_enabled: "Intelligence Layer (Insight Generation)",
   insight_events_enabled: "Insight → Event Bridge",
@@ -33,6 +35,7 @@ export const FEATURE_FLAG_LABELS: Record<FeatureFlagKey, string> = {
 };
 
 export const FEATURE_FLAG_DESCRIPTIONS: Record<FeatureFlagKey, string> = {
+  is_demo: "Overrides workspace metrics with simulated demo data. Disables actual execution for safe sales sandbox.",
   language_region_enabled: "Enables collection and storage of language and region data on contacts and events. No execution impact.",
   intelligence_layer_enabled: "Enables rule-based insight generation from automation runs, event logs, and lead data. Read-only insights.",
   insight_events_enabled: "Converts generated insights into actionable events pushed through the execution pipeline.",

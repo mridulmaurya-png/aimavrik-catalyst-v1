@@ -95,3 +95,24 @@ export async function updateCampaignStatus(campaignId: string, status: Campaign[
 
   return { success: true };
 }
+
+export async function requestCampaignExecution(insightId: string, segmentId?: string) {
+  const { businessId } = await requireWorkspace();
+  const supabase = await createClient();
+
+  // Phase 7: Campaign Execution Bridge
+  // Create campaign request for OPS review (No direct client execution)
+  await supabase.from("campaign_requests").insert({
+    business_id: businessId,
+    insight_id: insightId,
+    segment_id: segmentId || null,
+    status: 'pending',
+    requested_by: 'client'
+  });
+
+  // Mark the insight as acknowledged
+  await supabase.from("insights").update({ status: 'acknowledged' }).eq("id", insightId).eq("business_id", businessId);
+
+  revalidatePath("/dashboard");
+  return { success: true };
+}

@@ -89,6 +89,7 @@ import {
   Brain,
   Globe,
   Eye,
+  Sparkles,
 } from "lucide-react";
 
 interface WorkspaceDetailData {
@@ -561,6 +562,7 @@ function IntegrationsTab({ integrations, businessId }: { integrations: any[]; bu
   const [newMode, setNewMode] = React.useState("internal");
   const [newWebhook, setNewWebhook] = React.useState("");
   const [newRef, setNewRef] = React.useState("");
+  const [newCredentials, setNewCredentials] = React.useState<any>({});
 
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editForm, setEditForm] = React.useState({
@@ -571,6 +573,7 @@ function IntegrationsTab({ integrations, businessId }: { integrations: any[]; bu
     notes: "",
     execution_mode: "",
     webhook_url: "",
+    credentials: {} as any,
   });
 
   const handleEditMode = (integ: any) => {
@@ -582,6 +585,7 @@ function IntegrationsTab({ integrations, businessId }: { integrations: any[]; bu
       notes: integ.notes || "",
       execution_mode: integ.execution_mode || "internal",
       webhook_url: integ.webhook_url || "",
+      credentials: integ.credentials || {},
     });
     setEditingId(integ.id);
   };
@@ -597,6 +601,7 @@ function IntegrationsTab({ integrations, businessId }: { integrations: any[]; bu
         execution_mode: editForm.execution_mode,
         webhook_url: editForm.webhook_url || undefined,
         provider: editForm.provider || undefined,
+        credentials: editForm.credentials,
       });
       alert("Integration updated successfully!");
       setEditingId(null);
@@ -620,12 +625,14 @@ function IntegrationsTab({ integrations, businessId }: { integrations: any[]; bu
         execution_mode: newMode,
         webhook_url: newWebhook || undefined,
         connection_reference: newRef || undefined,
+        credentials: newCredentials,
       });
       setShowAdd(false);
       setNewProvider("");
       setNewNotes("");
       setNewWebhook("");
       setNewRef("");
+      setNewCredentials({});
       router.refresh();
     } catch (e: any) {
       alert(e.message);
@@ -718,6 +725,47 @@ function IntegrationsTab({ integrations, businessId }: { integrations: any[]; bu
               <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">System Reference (ID)</label>
               <input value={newRef} onChange={e => setNewRef(e.target.value)} className="input-base h-10 text-body-sm" placeholder="Account ID or Ref" />
             </div>
+            
+            {newType === 'whatsapp' && (
+              <div className="grid grid-cols-2 gap-4 mt-2">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">API Key (Token)</label>
+                  <input type="password" value={newCredentials?.api_key || ''} onChange={e => setNewCredentials({...newCredentials, api_key: e.target.value})} className="input-base h-10 text-body-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Phone Number ID</label>
+                  <input value={newCredentials?.phone_number_id || ''} onChange={e => setNewCredentials({...newCredentials, phone_number_id: e.target.value})} className="input-base h-10 text-body-sm" />
+                </div>
+              </div>
+            )}
+            {newType === 'email' && (
+              <div className="grid grid-cols-2 gap-4 mt-2">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">API Key</label>
+                  <input type="password" value={newCredentials?.api_key || ''} onChange={e => setNewCredentials({...newCredentials, api_key: e.target.value})} className="input-base h-10 text-body-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">From Email</label>
+                  <input value={newCredentials?.from_email || ''} onChange={e => setNewCredentials({...newCredentials, from_email: e.target.value})} className="input-base h-10 text-body-sm" />
+                </div>
+              </div>
+            )}
+            {newType === 'voice' && (
+              <div className="grid grid-cols-3 gap-4 mt-2">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">API Key</label>
+                  <input type="password" value={newCredentials?.api_key || ''} onChange={e => setNewCredentials({...newCredentials, api_key: e.target.value})} className="input-base h-10 text-body-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Caller ID</label>
+                  <input value={newCredentials?.caller_id || ''} onChange={e => setNewCredentials({...newCredentials, caller_id: e.target.value})} className="input-base h-10 text-body-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Agent ID</label>
+                  <input value={newCredentials?.agent_id || ''} onChange={e => setNewCredentials({...newCredentials, agent_id: e.target.value})} className="input-base h-10 text-body-sm" />
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex gap-2">
             <Button variant="primary" className="h-9 text-body-sm" onClick={handleAdd} disabled={loading}>
@@ -782,6 +830,49 @@ function IntegrationsTab({ integrations, businessId }: { integrations: any[]; bu
                 <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Notes</label>
                 <textarea value={editForm.notes} onChange={e => setEditForm(f => ({...f, notes: e.target.value}))} className="input-base py-2 min-h-[80px] text-body-sm" />
               </div>
+              
+              {editForm.type === 'whatsapp' && (
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">API Key (Token)</label>
+                    <input type="password" value={editForm.credentials?.api_key || ''} onChange={e => setEditForm(f => ({...f, credentials: {...f.credentials, api_key: e.target.value}}))} className="input-base h-10 text-body-sm" />
+                    <p className="text-[10px] text-brand-text-secondary italic mt-1">Provided by your WhatsApp provider dashboard (System Admin &gt; Security &gt; Tokens).</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Phone Number ID</label>
+                    <input value={editForm.credentials?.phone_number_id || ''} onChange={e => setEditForm(f => ({...f, credentials: {...f.credentials, phone_number_id: e.target.value}}))} className="input-base h-10 text-body-sm" />
+                    <p className="text-[10px] text-brand-text-secondary italic mt-1">Found in WhatsApp Manager &gt; Phone Numbers.</p>
+                  </div>
+                </>
+              )}
+              {editForm.type === 'email' && (
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">API Key</label>
+                    <input type="password" value={editForm.credentials?.api_key || ''} onChange={e => setEditForm(f => ({...f, credentials: {...f.credentials, api_key: e.target.value}}))} className="input-base h-10 text-body-sm" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">From Email</label>
+                    <input value={editForm.credentials?.from_email || ''} onChange={e => setEditForm(f => ({...f, credentials: {...f.credentials, from_email: e.target.value}}))} className="input-base h-10 text-body-sm" />
+                  </div>
+                </>
+              )}
+              {editForm.type === 'voice' && (
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">API Key</label>
+                    <input type="password" value={editForm.credentials?.api_key || ''} onChange={e => setEditForm(f => ({...f, credentials: {...f.credentials, api_key: e.target.value}}))} className="input-base h-10 text-body-sm" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Caller ID</label>
+                    <input value={editForm.credentials?.caller_id || ''} onChange={e => setEditForm(f => ({...f, credentials: {...f.credentials, caller_id: e.target.value}}))} className="input-base h-10 text-body-sm" />
+                  </div>
+                  <div className="col-span-2 space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Agent ID</label>
+                    <input value={editForm.credentials?.agent_id || ''} onChange={e => setEditForm(f => ({...f, credentials: {...f.credentials, agent_id: e.target.value}}))} className="input-base h-10 text-body-sm" />
+                  </div>
+                </>
+              )}
             </div>
             
             <div className="flex justify-end gap-3 pt-4 border-t border-brand-border/40">
@@ -1055,6 +1146,7 @@ function AutomationsTab({ automations, businessId }: { automations: any[]; busin
               <select value={form.trigger_event} onChange={e => setForm(f => ({ ...f, trigger_event: e.target.value }))} className="input-base h-10 text-body-sm">
                 {TRIGGER_EVENTS.map(t => <option key={t} value={t}>{getTriggerEventLabel(t)}</option>)}
               </select>
+              <p className="text-[10px] text-brand-text-secondary italic mt-1">This specific event forces execution. Eg. 'lead_created' will trigger whenever a lead hits ingestion.</p>
             </div>
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">Exec Engine</label>
@@ -1407,12 +1499,14 @@ function IntelligenceTab({ insights, businessId }: { insights: any[]; businessId
   const [loading, setLoading] = React.useState(false);
   const [filter, setFilter] = React.useState<string>("all");
 
-  const filteredInsights = filter === "all"
-    ? insights
-    : insights.filter((i: any) => i.status === filter);
+  const openInsights = insights.filter((i: any) => i.status === "open");
+  const fixingTypes = ['integration_failure', 'action_failed', 'stuck_lead', 'engine_error', 'configuration_needed'];
+  const fixingNeeds = openInsights.filter((i: any) => fixingTypes.includes(i.type));
+  const opportunities = openInsights.filter((i: any) => !fixingTypes.includes(i.type));
 
-  const openCount = insights.filter((i: any) => i.status === "open").length;
-  const highCount = insights.filter((i: any) => i.priority === "critical" || i.priority === "high").length;
+  const filteredInsights = filter === "all" ? insights : insights.filter((i: any) => i.status === filter);
+  const openCount = openInsights.length;
+  const highCount = insights.filter((i: any) => (i.priority === "critical" || i.priority === "high") && i.status === 'open').length;
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -1453,16 +1547,13 @@ function IntelligenceTab({ insights, businessId }: { insights: any[]; businessId
         </Button>
       </div>
 
-      {/* Filters */}
       <div className="flex gap-1">
         {["all", "open", "acknowledged", "acted", "dismissed"].map(s => (
           <button
             key={s}
             onClick={() => setFilter(s)}
             className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors ${
-              filter === s
-                ? "bg-brand-primary text-white"
-                : "bg-brand-bg-primary/30 text-brand-text-tertiary hover:text-brand-text-secondary"
+              filter === s ? "bg-brand-primary text-white" : "bg-brand-bg-primary/30 text-brand-text-tertiary hover:text-brand-text-secondary"
             }`}
           >
             {s}
@@ -1470,84 +1561,86 @@ function IntelligenceTab({ insights, businessId }: { insights: any[]; businessId
         ))}
       </div>
 
-      {/* Insights List */}
-      <div className="space-y-3">
-        {filteredInsights.length === 0 && (
-          <Card variant="elevated" className="p-12 text-center text-brand-text-tertiary text-body-sm">
-            No insights to display. Run Intelligence to generate.
-          </Card>
-        )}
-
-        {filteredInsights.map((insight: any) => (
-          <Card key={insight.id} variant="elevated" className="p-4 space-y-2">
-            <div className="flex items-start gap-3">
-              <div className={`p-2 rounded-lg shrink-0 ${
-                insight.priority === "critical" ? "bg-functional-error/10 text-functional-error" :
-                insight.priority === "high" ? "bg-functional-warning/10 text-functional-warning" :
-                "bg-brand-primary/10 text-brand-primary"
-              }`}>
-                <Lightbulb className="w-4 h-4" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Badge variant={getInsightPriorityColor(insight.priority)} className="text-[9px]">
-                    {insight.priority}
-                  </Badge>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">
-                    {getInsightLabel(insight.type)}
-                  </span>
-                  {insight.lead_id && (
-                    <span className="text-[9px] font-mono text-brand-text-tertiary">
-                      Lead: {insight.lead_id.substring(0, 8)}…
-                    </span>
-                  )}
-                  <span className="text-[10px] text-brand-text-tertiary ml-auto">
-                    {new Date(insight.created_at).toLocaleString()}
-                  </span>
+      <div className="space-y-6">
+        {filter === "open" ? (
+          <>
+            {fixingNeeds.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-functional-error">
+                  <AlertCircle className="w-4 h-4" />
+                  <h4 className="text-[11px] font-bold uppercase tracking-widest">What needs fixing now</h4>
                 </div>
-                <p className="text-body-sm text-brand-text-primary mt-1">{insight.message}</p>
-                {insight.recommended_action && (
-                  <p className="text-[11px] text-brand-text-secondary italic mt-1">💡 {insight.recommended_action}</p>
-                )}
+                {fixingNeeds.map((insight: any) => (
+                   <InsightCard key={insight.id} insight={insight} businessId={businessId} handleStatusChange={handleStatusChange} loading={loading} />
+                ))}
               </div>
-              <div className="flex gap-1 shrink-0">
-                {insight.status === "open" && (
-                  <>
-                    <button
-                      onClick={() => handleStatusChange(insight.id, "acknowledged")}
-                      className="p-1.5 rounded hover:bg-brand-primary/10 text-brand-text-tertiary hover:text-brand-primary"
-                      title="Acknowledge"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleStatusChange(insight.id, "acted")}
-                      className="p-1.5 rounded hover:bg-functional-success/10 text-functional-success"
-                      title="Mark Acted"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleStatusChange(insight.id, "dismissed")}
-                      className="p-1.5 rounded hover:bg-functional-error/10 text-brand-text-tertiary hover:text-functional-error"
-                      title="Dismiss"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </>
-                )}
-                <Badge
-                  variant={insight.status === "open" ? "warning" : insight.status === "acted" ? "success" : "neutral"}
-                  className="text-[9px] h-6"
-                >
-                  {insight.status}
-                </Badge>
+            )}
+            {opportunities.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-brand-primary">
+                  <Sparkles className="w-4 h-4" />
+                  <h4 className="text-[11px] font-bold uppercase tracking-widest">Opportunities & Re-engagement</h4>
+                </div>
+                {opportunities.map((insight: any) => (
+                   <InsightCard key={insight.id} insight={insight} businessId={businessId} handleStatusChange={handleStatusChange} loading={loading} />
+                ))}
               </div>
-            </div>
-          </Card>
-        ))}
+            )}
+            {fixingNeeds.length === 0 && opportunities.length === 0 && (
+              <Card variant="elevated" className="p-12 text-center text-brand-text-tertiary text-body-sm">
+                No open insights. Everything looks clear!
+              </Card>
+            )}
+          </>
+        ) : (
+          <div className="space-y-3">
+            {filteredInsights.length === 0 ? (
+              <Card variant="elevated" className="p-12 text-center text-brand-text-tertiary text-body-sm">
+                No insights to display in this category.
+              </Card>
+            ) : (
+              filteredInsights.map((insight: any) => (
+                <InsightCard key={insight.id} insight={insight} businessId={businessId} handleStatusChange={handleStatusChange} loading={loading} />
+              ))
+            )}
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+function InsightCard({ insight, businessId, handleStatusChange, loading }: { insight: any, businessId: string, handleStatusChange: any, loading: boolean }) {
+  return (
+    <Card variant="elevated" className="p-4 space-y-2">
+      <div className="flex items-start gap-3">
+        <div className={`p-2 rounded-lg shrink-0 ${
+          insight.priority === "critical" ? "bg-functional-error/10 text-functional-error" :
+          insight.priority === "high" ? "bg-functional-warning/10 text-functional-warning" : "bg-brand-primary/10 text-brand-primary"
+        }`}>
+          <Lightbulb className="w-4 h-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-brand-text-tertiary">
+            {getInsightLabel(insight.type)} • {new Date(insight.created_at).toLocaleString()}
+          </p>
+          <p className="text-body-sm text-brand-text-primary mt-1 font-bold">{insight.message}</p>
+          {insight.recommended_action && (
+             <p className="text-[11px] text-brand-text-secondary mt-1 italic">💡 {insight.recommended_action}</p>
+          )}
+        </div>
+        <div className="flex gap-1 shrink-0">
+          {insight.status === "open" && (
+            <>
+              <button onClick={() => handleStatusChange(insight.id, "acknowledged")} className="p-1.5 rounded hover:bg-brand-primary/10 text-brand-text-tertiary transition-colors" title="Acknowledge"><Eye className="w-3.5 h-3.5" /></button>
+              <button onClick={() => handleStatusChange(insight.id, "acted")} className="p-1.5 rounded hover:bg-functional-success/10 text-functional-success transition-colors" title="Mark Acted"><Check className="w-3.5 h-3.5" /></button>
+              <button onClick={() => handleStatusChange(insight.id, "dismissed")} className="p-1.5 rounded hover:bg-functional-error/10 text-brand-text-tertiary transition-colors" title="Dismiss"><X className="w-3.5 h-3.5" /></button>
+            </>
+          )}
+          <Badge variant={insight.status === "open" ? "warning" : insight.status === "acted" ? "success" : "neutral"} className="text-[9px] h-6">{insight.status}</Badge>
+        </div>
+      </div>
+    </Card>
   );
 }
 

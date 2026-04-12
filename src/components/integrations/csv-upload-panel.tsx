@@ -141,8 +141,8 @@ export function CSVUploadPanel() {
               variant="secondary"
               className="h-9 px-4 gap-2 text-[11px] font-bold uppercase tracking-widest border-brand-border/60"
               onClick={() => {
-                const headers = ["full_name", "email", "phone", "stage", "source", "total_revenue"];
-                const sampleData = ["John Doe,john@example.com,+123456789,new,manual,0"];
+                const headers = ["full_name", "email", "phone", "source", "language", "region", "utm_source", "landing_page"];
+                const sampleData = ["Alex Rivera,alex@example.com,+919999999999,manual,en,north_india,google,/pricing"];
                 const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + sampleData.join("\n");
                 const encodedUri = encodeURI(csvContent);
                 const link = document.createElement("a");
@@ -173,6 +173,11 @@ export function CSVUploadPanel() {
             <Upload className="w-4 h-4" />
             Choose CSV File
           </Button>
+
+          <div className="flex items-center gap-2 text-[11px] text-brand-text-tertiary font-medium mt-4">
+            <Info className="w-3.5 h-3.5" />
+            Language and region improve communication accuracy and campaign performance.
+          </div>
         </div>
       )}
 

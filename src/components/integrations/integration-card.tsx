@@ -13,7 +13,8 @@ import {
   Zap,
   ShoppingCart,
   Mail,
-  MessageSquare
+  MessageSquare,
+  PhoneCall
 } from "lucide-react"
 
 interface IntegrationCardProps {
@@ -29,6 +30,7 @@ const PROVIDER_ICONS: Record<string, any> = {
   'HubSpot': Hash,
   'WhatsApp': MessageSquare,
   'Email': Mail,
+  'AI Voice': PhoneCall,
 };
 
 export function IntegrationCard({

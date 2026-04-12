@@ -27,7 +27,7 @@ export function ConnectorCategoryBlock({ title, connectors }: ConnectorCategoryP
             <Card 
               key={connector.id} 
               className="p-4 flex items-center justify-between transition-all bg-brand-bg-secondary/30 opacity-60 cursor-not-allowed"
-              title={`${connector.name} — Coming soon in production release`}
+              title={`${connector.name} — Use webhook via n8n for integration`}
             >
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded-lg bg-brand-bg-primary border border-brand-border flex items-center justify-center">
@@ -38,7 +38,7 @@ export function ConnectorCategoryBlock({ title, connectors }: ConnectorCategoryP
                     {connector.name}
                   </span>
                   <Badge variant="neutral" className="w-fit text-[9px] px-1.5 py-0 uppercase tracking-wider border-none bg-white/[0.04]">
-                    Coming Soon
+                    Use Webhook
                   </Badge>
                 </div>
               </div>

@@ -59,6 +59,8 @@ export async function importContacts(rows: ImportRow[]) {
         phone,
         full_name: fullName,
         name: fullName,
+        language: row.language,
+        region: row.region,
         metadata: {
           import_source: "csv_mapping",
           company: row.company || null,

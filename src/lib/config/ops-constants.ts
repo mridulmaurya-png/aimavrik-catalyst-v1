@@ -80,6 +80,7 @@ export const INTEGRATION_TYPES = [
   "webhook",
   "n8n",
   "custom",
+  "voice",
 ] as const;
 
 export type IntegrationType = typeof INTEGRATION_TYPES[number];
@@ -94,6 +95,7 @@ export const INTEGRATION_PROVIDERS: Record<string, string[]> = {
   webhook: ["Inbound Webhook", "Outbound Webhook"],
   n8n: ["n8n Cloud", "n8n Self-Hosted"],
   custom: ["Custom API"],
+  voice: ["Twilio", "Exotel", "Vapi"],
 };
 
 export const INTEGRATION_STATUSES = ["connected", "pending", "disconnected", "failed", "needs_attention"] as const;
@@ -102,7 +104,7 @@ export type IntegrationStatus = typeof INTEGRATION_STATUSES[number];
 export function getIntegrationLabel(type: string): string {
   const map: Record<string, string> = {
     crm: "CRM", email: "Email", whatsapp: "WhatsApp", shopify: "Shopify",
-    payment: "Payment", csv_import: "CSV Import", webhook: "Webhook", n8n: "n8n", custom: "Custom",
+    payment: "Payment", csv_import: "CSV Import", webhook: "Webhook", n8n: "n8n", custom: "Custom", voice: "AI Voice",
   };
   return map[type] || type;
 }
@@ -242,7 +244,7 @@ export function getRunStatusColor(status: string): "success" | "warning" | "erro
 // HEALTH STATUS
 // ═══════════════════════════════════════════════════
 
-export const HEALTH_STATUSES = ["healthy", "degraded", "critical", "unknown"] as const;
+export const HEALTH_STATUSES = ["healthy", "degraded", "critical", "failed", "not_configured", "unknown"] as const;
 export type HealthStatus = typeof HEALTH_STATUSES[number];
 
 export function getHealthColor(health: string | null | undefined): "success" | "warning" | "error" | "neutral" {
@@ -250,6 +252,8 @@ export function getHealthColor(health: string | null | undefined): "success" | "
     case "healthy": return "success";
     case "degraded": return "warning";
     case "critical": return "error";
+    case "failed": return "error";
+    case "not_configured": return "neutral";
     default: return "neutral";
   }
 }

@@ -15,14 +15,13 @@ interface ColumnMappingProps {
 
 const TARGET_FIELDS = [
   { id: 'full_name', label: 'Full Name', required: false },
-  { id: 'email', label: 'Email Address', required: true },
+  { id: 'email', label: 'Email Address', required: false },
   { id: 'phone', label: 'Phone / WhatsApp', required: false },
-  { id: 'company', label: 'Company Name', required: false },
-  { id: 'lifecycle_stage', label: 'Lifecycle Stage', required: false },
-  { id: 'lead_score', label: 'Lead Score', required: false },
-  { id: 'opportunity_value', label: 'Opportunity Value', required: false },
   { id: 'source', label: 'Source', required: false },
-  { id: 'notes', label: 'Notes', required: false },
+  { id: 'language', label: 'Language', required: false },
+  { id: 'region', label: 'Region', required: false },
+  { id: 'utm_source', label: 'UTM Source', required: false },
+  { id: 'landing_page', label: 'Landing Page', required: false },
 ];
 
 export function ColumnMapping({ headers, sampleRows, onConfirm, onCancel }: ColumnMappingProps) {
@@ -52,7 +51,7 @@ export function ColumnMapping({ headers, sampleRows, onConfirm, onCancel }: Colu
     }));
   };
 
-  const isEmailMapped = !!mapping['email'];
+  const isIdentifierMapped = !!mapping['email'] || !!mapping['phone'];
 
   return (
     <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
@@ -92,11 +91,11 @@ export function ColumnMapping({ headers, sampleRows, onConfirm, onCancel }: Colu
         ))}
       </div>
 
-      {!isEmailMapped && (
+      {!isIdentifierMapped && (
         <div className="p-3 bg-functional-error/10 border border-functional-error/30 rounded-lg flex items-start gap-3">
           <AlertCircle className="w-4 h-4 text-functional-error mt-0.5" />
           <p className="text-[11px] text-functional-error leading-relaxed">
-            <b>Email Address</b> must be mapped to proceed. This is used for contact deduplication and identification.
+            <b>Email Address</b> or <b>Phone Number</b> must be mapped to proceed. This is used for contact deduplication and identification.
           </p>
         </div>
       )}
@@ -106,7 +105,7 @@ export function ColumnMapping({ headers, sampleRows, onConfirm, onCancel }: Colu
         <Button 
           variant="primary" 
           onClick={() => onConfirm(mapping)} 
-          disabled={!isEmailMapped}
+          disabled={!isIdentifierMapped}
           className="h-9 px-6 gap-2 text-xs"
         >
           <Check className="w-3.5 h-3.5" />

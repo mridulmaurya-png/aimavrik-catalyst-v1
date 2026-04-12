@@ -77,6 +77,40 @@ export async function executeEvent(request: ExecutionRequest): Promise<Execution
   }
 
   // ─────────────────────────────────────────────────
+  // PHASE 7 & 9: FAIL SAFE GUARDS & CIRCUIT BREAKER
+  // ─────────────────────────────────────────────────
+  const fiveMinsAgo = new Date(Date.now() - 5 * 60000).toISOString();
+  const { count: recentFailures } = await supabase
+    .from("automation_runs")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", request.business_id)
+    .eq("status", "failed")
+    .gte("created_at", fiveMinsAgo);
+
+  if (recentFailures !== null && recentFailures >= 10) {
+    return [await createBlockedResult(
+      request, null, "WORKSPACE_INACTIVE",
+      "Circuit Breaker Tripped. High failure rate detected in the last 5 minutes. All executions paused.",
+      startedAt, supabase
+    )];
+  }
+
+  const oneMinAgo = new Date(Date.now() - 60000).toISOString();
+  const { count: recentEventsCount } = await supabase
+    .from("events")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", request.business_id)
+    .gte("created_at", oneMinAgo);
+
+  if (recentEventsCount !== null && recentEventsCount >= 100) {
+    return [await createBlockedResult(
+      request, null, "WORKSPACE_INACTIVE",
+      "Rate limit exceeded. Maximum 100 events per minute allowed.",
+      startedAt, supabase
+    )];
+  }
+
+  // ─────────────────────────────────────────────────
   // STEP 2: Find Matching Automations
   // ─────────────────────────────────────────────────
   const { data: automations } = await supabase

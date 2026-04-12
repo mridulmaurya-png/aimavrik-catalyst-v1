@@ -19,6 +19,7 @@ import { executeEvent } from "@/lib/execution/router";
 import { scheduleFollowUp } from "@/lib/execution/scheduler";
 import { TRIGGER_EVENTS } from "@/lib/execution/types";
 import { isFeatureEnabled } from "@/lib/config/feature-flags";
+import { processRevenueEvent } from "@/lib/intelligence/attribution-engine";
 
 export const runtime = "nodejs";
 
@@ -59,6 +60,9 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    const trace_id = `trc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    payload.trace_id = trace_id;
 
     if (!event_type) {
       return NextResponse.json(
@@ -130,6 +134,19 @@ export async function POST(req: Request) {
     // ─── Safe language/region enrichment (Phase 1) ───
     const language = payload.language || body.language || null;
     const region = payload.region || body.region || null;
+
+    // ─── Route through managed execution engine ───
+    // Phase 1 + 2: Revenue Routing
+    const REVENUE_EVENTS = ["lead_converted", "deal_won", "payment_received"];
+    if (REVENUE_EVENTS.includes(event_type)) {
+      await processRevenueEvent(business_id, {
+         event: event_type,
+         lead_id: entity_id,
+         amount: payload.amount || body.amount || 0,
+         currency: payload.currency || body.currency || 'INR',
+         source: source
+      });
+    }
 
     // ─── Route through managed execution engine ───
     const results = await executeEvent({

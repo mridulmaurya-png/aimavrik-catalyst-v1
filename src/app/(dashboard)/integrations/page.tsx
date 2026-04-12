@@ -16,7 +16,8 @@ import {
   Layout, 
   CreditCard, 
   Database,
-  Plus
+  Plus,
+  PhoneCall
 } from "lucide-react"
 
 const LEAD_SOURCES = [
@@ -41,6 +42,7 @@ const CRM = [
 const CHANNELS = [
   { id: 'whatsapp', name: 'WhatsApp', icon: MessageSquare },
   { id: 'email', name: 'Email', icon: Mail },
+  { id: 'voice', name: 'AI Voice Calls', icon: PhoneCall },
 ];
 
 export default async function IntegrationsPage() {
@@ -49,8 +51,8 @@ export default async function IntegrationsPage() {
 
   // Fetch integrations directly — no getSystemState dependency
   const { data: integrations } = await supabase
-    .from("integrations")
-    .select("id, provider, status, created_at")
+    .from("client_integrations")
+    .select("id, provider, status, created_at, integration_type")
     .eq("business_id", businessId);
 
   // Fetch business settings for connector config
@@ -74,8 +76,9 @@ export default async function IntegrationsPage() {
 
   // Build connected systems from real integrations data
   const CONNECTED = (integrations || []).map(int => {
-    const provider = int.provider || "unknown";
-    const normalizedProvider = provider.toLowerCase();
+    const typeOrProvider = int.integration_type || int.provider || "unknown";
+    const provider = int.provider || typeOrProvider;
+    const normalizedProvider = typeOrProvider.toLowerCase();
 
     let displayName = provider.charAt(0).toUpperCase() + provider.slice(1).replace(/_/g, ' ');
     let statusLabel = int.status || 'active';
@@ -93,6 +96,9 @@ export default async function IntegrationsPage() {
     } else if (normalizedProvider === 'whatsapp') {
       displayName = 'WhatsApp';
       statusLabel = 'simulating';
+    } else if (normalizedProvider === 'voice') {
+      displayName = 'AI Voice';
+      lastSync = 'Standby';
     }
 
     const realEventCount = countBySource[normalizedProvider] || 0;
