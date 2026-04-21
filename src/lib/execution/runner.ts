@@ -3,6 +3,7 @@ import { validateActionExecution } from "./validation";
 import { generateMessagePayload } from "./generation";
 import { sendWhatsApp, sendEmail } from "./delivery";
 import { executeN8n } from "./engines/n8n";
+import crypto from "crypto";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -236,8 +237,23 @@ async function executeSingleAction(action: any) {
     try {
       const { data: contact } = await supabase.from("contacts").select("*").eq("id", action.contact_id).single();
       
-      const handoffPayload = {
+      const automation_run_id = crypto.randomUUID();
+
+      await supabase.from("automation_runs").insert({
+        id: automation_run_id,
         workspace_id: action.business_id,
+        automation_id: activeAuto.id,
+        event: intent,
+        status: "pending",
+        created_at: new Date().toISOString()
+      });
+
+      console.log("Automation run created", { automation_run_id });
+
+      const handoffPayload = {
+        automation_run_id,
+        workspace_id: action.business_id,
+        automation_id: activeAuto.id,
         event: intent,
         lead: {
           id: contact?.id || action.contact_id,
@@ -265,13 +281,24 @@ async function executeSingleAction(action: any) {
         trace_id: action.payload_json?.trace_id || `trc_fb_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       };
 
-      const result = await executeN8n({
+      // Do not block. Execute in background.
+      executeN8n({
         url: targetUrl,
         payload: handoffPayload,
         timeoutMs: 15000
+      }).then(async (result) => {
+        if (!result.success) {
+          await supabase.from("automation_runs").update({
+            status: "failed",
+            error: "n8n request failed"
+          }).eq("id", automation_run_id);
+        }
+      }).catch(async (err) => {
+        await supabase.from("automation_runs").update({
+          status: "failed",
+          error: "n8n request failed"
+        }).eq("id", automation_run_id);
       });
-      
-      if (!result.success) throw new Error(`${engine} Webhook rejected: ${result.error}`);
       
       await supabase.from("actions").update({ 
         status: "handed_off", 
@@ -286,7 +313,7 @@ async function executeSingleAction(action: any) {
         log_data_json: { 
             engine,
             target_url: targetUrl,
-            response_code: result.response_code || 200
+            response_code: 200
         }
       });
       return { action_id: action.id, status: "handed_off", handed_off_to: engine };
