@@ -7,7 +7,7 @@
  * Authentication: 
  *   Header: Authorization: Bearer <api_key>
  *   OR: x-api-key: <api_key>
- *   The api_key is matched against businesses.api_key or client_integrations.config_json.api_key
+ *   The api_key is matched against businesses.api_key or INTERNAL_API_KEY / INTERNAL_EXECUTION_SECRET
  * 
  * Payload:
  *   { business_id, event_type, entity_type?, entity_id?, payload?, source? }
@@ -20,6 +20,7 @@ import { scheduleFollowUp } from "@/lib/execution/scheduler";
 import { TRIGGER_EVENTS } from "@/lib/execution/types";
 import { isFeatureEnabled } from "@/lib/config/feature-flags";
 import { processRevenueEvent } from "@/lib/intelligence/attribution-engine";
+import { validateOrigin } from "@/lib/api/guard";
 
 export const runtime = "nodejs";
 
@@ -43,6 +44,10 @@ export async function POST(req: Request) {
   const startMs = Date.now();
 
   try {
+    // Security: Origin/IP restriction
+    const originError = validateOrigin(req);
+    if (originError) return originError;
+
     const body = await req.json();
     const {
       business_id,
@@ -102,9 +107,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // API key validation (check business.api_key OR allow internal secret)
+    // API key validation (check business.api_key, INTERNAL_API_KEY, or INTERNAL_EXECUTION_SECRET)
     const internalSecret = process.env.INTERNAL_EXECUTION_SECRET;
-    const isInternalCall = apiKey && internalSecret && apiKey === internalSecret;
+    const internalApiKey = process.env.INTERNAL_API_KEY;
+    const isInternalCall = apiKey && (
+      (internalSecret && apiKey === internalSecret) ||
+      (internalApiKey && apiKey === internalApiKey)
+    );
     const isWorkspaceKey = apiKey && workspace.api_key && apiKey === workspace.api_key;
 
     if (!isInternalCall && !isWorkspaceKey) {
@@ -119,10 +128,8 @@ export async function POST(req: Request) {
 
       // If no workspace key set and no integration match and no internal secret, reject
       if (!matchingInteg && !isWorkspaceKey) {
-        // If workspace has no API key configured, allow with a warning in dev
-        if (!workspace.api_key && process.env.NODE_ENV === "development") {
-          console.warn(`[EVENT:INGEST] No API key configured for workspace ${business_id}. Allowing in dev mode.`);
-        } else if (workspace.api_key) {
+        // Reject all unauthenticated requests — no dev mode bypass
+        if (workspace.api_key || internalApiKey) {
           return NextResponse.json(
             { success: false, error: "UNAUTHORIZED", message: "Invalid or missing API key." },
             { status: 401 }
@@ -193,6 +200,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       status: "processed",
+      trace_id,
       duration_ms: durationMs,
       results: results.map(r => ({
         run_id: r.run_id,
@@ -206,8 +214,9 @@ export async function POST(req: Request) {
     }, { status: 200 });
 
   } catch (err: any) {
+    console.error("[EVENT:INGEST] Processing error:", err.message);
     return NextResponse.json(
-      { success: false, error: "PROCESSING_ERROR", message: err.message || "Unknown error" },
+      { success: false, error: "PROCESSING_ERROR", message: "Internal processing error." },
       { status: 500 }
     );
   }

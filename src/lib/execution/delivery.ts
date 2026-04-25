@@ -21,7 +21,7 @@ export async function sendWhatsApp(
   const isSimulated = forceSimulate || !config?.whatsapp_token;
 
   if (isSimulated) {
-    console.log(`[SIMULATED WHATSAPP] To: ${payload.to} | Body length: ${payload.body.length}`);
+    console.log(`[SIMULATED WHATSAPP] Delivery simulated | Body length: ${payload.body.length}`);
     return {
       success: true,
       provider_id: `sim_wa_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
@@ -56,7 +56,7 @@ export async function sendEmail(
   const isSimulated = forceSimulate || !config?.resend_api_key;
 
   if (isSimulated) {
-    console.log(`[SIMULATED EMAIL] To: ${payload.to} | Subject: ${payload.subject}`);
+    console.log(`[SIMULATED EMAIL] Delivery simulated`);
     return {
       success: true,
       provider_id: `sim_em_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,

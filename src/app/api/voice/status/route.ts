@@ -1,14 +1,21 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { validateOrigin } from "@/lib/api/guard";
 
-// Uses admin role to bypass RLS for webhook receiver
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+function getServiceClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  return createClient(supabaseUrl, supabaseServiceKey);
+}
 
 export async function POST(req: Request) {
   try {
+    // Security: Origin/IP restriction
+    const originError = validateOrigin(req);
+    if (originError) return originError;
+
     const body = await req.json();
+    const supabase = getServiceClient();
 
     const statusObj = body.CallStatus || body.status || 'unknown';
     const status = typeof statusObj === 'string' ? statusObj.toLowerCase() : 'unknown';
@@ -29,7 +36,7 @@ export async function POST(req: Request) {
     let normalizedStatus = "initiated";
     if (["completed", "answered"].includes(status)) {
         normalizedStatus = "answered";
-    } else if (["failed", "busy", "no-answer", "canceled", "failed"].includes(status)) {
+    } else if (["failed", "busy", "no-answer", "canceled"].includes(status)) {
         normalizedStatus = "failed";
     }
 
@@ -39,7 +46,7 @@ export async function POST(req: Request) {
         status: normalizedStatus,
         duration,
         provider,
-        metadata: body
+        metadata: { status: normalizedStatus, duration, provider }
     });
 
     if (normalizedStatus === "failed" || status === "no-answer" || status === "busy") {
@@ -49,7 +56,7 @@ export async function POST(req: Request) {
             business_id,
             type: insightType,
             priority: "medium",
-            message: `Voice call to lead ${lead_id || 'unknown'} resulted in ${status}.`,
+            message: `Voice call resulted in ${status}.`,
             lead_id: lead_id || null,
             status: "open"
         });
@@ -57,7 +64,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
-    console.error("Voice callback error:", err);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    console.error("[Voice:Status] Error:", err.message);
+    return NextResponse.json({ success: false, error: "Internal error" }, { status: 500 });
   }
 }

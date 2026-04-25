@@ -234,6 +234,75 @@ async function processAutomation(
   });
 
   // ─────────────────────────────────────────────────
+  // STEP 5.5: Enrich payload with lead context
+  // Catalyst = brain (provides decision context)
+  // n8n = hands (decides timing, templates, sequences)
+  // ─────────────────────────────────────────────────
+  let leadContext: Record<string, any> = {};
+
+  if (request.entity_id) {
+    try {
+      // Fetch contact record
+      const { data: contact } = await supabase
+        .from("contacts")
+        .select("id, full_name, phone, email, stage, source, contact_type, last_response_at, response_count, last_active_at, first_seen_at, total_revenue, metadata_json")
+        .eq("id", request.entity_id)
+        .eq("business_id", request.business_id)
+        .maybeSingle();
+
+      if (contact) {
+        const meta = contact.metadata_json || {};
+
+        // Fetch follow-up count (completed runs for this contact)
+        const { count: followUpCount } = await supabase
+          .from("automation_runs")
+          .select("id", { count: "exact", head: true })
+          .eq("business_id", request.business_id)
+          .eq("entity_id", request.entity_id)
+          .in("status", ["completed", "handed_off"]);
+
+        // Fetch most recent sentiment from lead_responses
+        const { data: lastResponse } = await supabase
+          .from("lead_responses")
+          .select("sentiment, channel, created_at")
+          .eq("lead_id", request.entity_id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        leadContext = {
+          lead_id: contact.id,
+          lead_name: contact.full_name || null,
+          lead_phone: contact.phone || null,
+          lead_email: contact.email || null,
+          lead_stage: contact.stage,
+          lead_source: contact.source || null,
+          lead_type: contact.contact_type,
+          lead_score: meta.lead_score || null,
+          lead_segment: meta.segment || null,
+          follow_up_count: followUpCount || 0,
+          response_count: contact.response_count || 0,
+          last_response_at: contact.last_response_at || null,
+          last_active_at: contact.last_active_at || null,
+          first_seen_at: contact.first_seen_at || null,
+          total_revenue: contact.total_revenue || 0,
+          sentiment: lastResponse?.sentiment || null,
+          last_response_channel: lastResponse?.channel || null,
+          days_since_first_seen: contact.first_seen_at
+            ? Math.floor((Date.now() - new Date(contact.first_seen_at).getTime()) / 86400000)
+            : null,
+          days_since_last_active: contact.last_active_at
+            ? Math.floor((Date.now() - new Date(contact.last_active_at).getTime()) / 86400000)
+            : null,
+        };
+      }
+    } catch (err: any) {
+      // Non-fatal — execution proceeds without enrichment
+      console.error("[Router] Context enrichment failed:", err.message);
+    }
+  }
+
+  // ─────────────────────────────────────────────────
   // STEP 6: Execute via Engine
   // ─────────────────────────────────────────────────
   try {
@@ -245,7 +314,10 @@ async function processAutomation(
       trigger_event: request.event_type,
       output_channel: channel,
       mode: mode,
-      payload: request.payload || {},
+      payload: {
+        ...(request.payload || {}),
+        _lead_context: leadContext,
+      },
       timestamp: startedAt,
     };
 

@@ -66,6 +66,15 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
     .order("created_at", { ascending: false })
     .limit(10);
 
+  // Fetch lead responses (inbound replies)
+  const { data: responses } = await supabase
+    .from("lead_responses")
+    .select("id, message, channel, sentiment, created_at")
+    .eq("business_id", businessId)
+    .eq("lead_id", id)
+    .order("created_at", { ascending: false })
+    .limit(15);
+
   // Fetch assigned playbooks
   const { data: contactPlaybooks } = await supabase
     .from("actions")
@@ -74,8 +83,8 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
     .eq("contact_id", id)
     .limit(5);
 
-  // Build real timeline from events + actions + messages
-  const timelineItems = buildTimeline(events || [], actions || [], messages || []);
+  // Build real timeline from events + actions + messages + responses
+  const timelineItems = buildTimeline(events || [], actions || [], messages || [], responses || []);
 
   // Build playbook assignments from real actions
   const assignedPlaybooks = buildPlaybookAssignments(contactPlaybooks || []);
@@ -97,6 +106,8 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
     revenue: formatCurrency(opportunityValue, currencyCode),
     firstSeen: contact.first_seen_at ? new Date(contact.first_seen_at).toLocaleDateString() : "—",
     lastActive: contact.last_active_at ? new Date(contact.last_active_at).toLocaleDateString() : "—",
+    lastResponse: contact.last_response_at ? new Date(contact.last_response_at).toLocaleDateString() : null,
+    responseCount: contact.response_count || 0,
     leadScore,
     tags: contact.tags_json || [],
   };
@@ -179,7 +190,7 @@ function formatTimeAgo(timestamp: string): string {
   return date.toLocaleDateString();
 }
 
-function buildTimeline(events: any[], actions: any[], messages: any[]) {
+function buildTimeline(events: any[], actions: any[], messages: any[], responses: any[] = []) {
   const items: any[] = [];
 
   // Events
@@ -218,6 +229,22 @@ function buildTimeline(events: any[], actions: any[], messages: any[]) {
       icon: m.channel === 'whatsapp' ? 'whatsapp' : 'email',
       status: m.delivery_status === 'delivered' ? 'delivered' : m.delivery_status === 'failed' ? 'failed' : undefined,
       sortDate: new Date(m.created_at).getTime()
+    });
+  });
+
+  // Lead Responses (inbound replies)
+  responses.forEach(r => {
+    const sentimentLabel = r.sentiment === 'interested' ? '🟢 Interested'
+      : r.sentiment === 'not_interested' ? '🔴 Not Interested'
+      : '🟡 Engaged';
+    items.push({
+      id: r.id,
+      type: `Reply via ${(r.channel || 'unknown').charAt(0).toUpperCase() + (r.channel || 'unknown').slice(1)}`,
+      description: `"${r.message.length > 80 ? r.message.substring(0, 80) + '…' : r.message}" — ${sentimentLabel}`,
+      timestamp: formatTimeAgo(r.created_at),
+      icon: r.channel === 'whatsapp' ? 'whatsapp' : r.channel === 'email' ? 'email' : 'lead',
+      status: r.sentiment === 'interested' ? 'success' : r.sentiment === 'not_interested' ? 'failed' : undefined,
+      sortDate: new Date(r.created_at).getTime()
     });
   });
 

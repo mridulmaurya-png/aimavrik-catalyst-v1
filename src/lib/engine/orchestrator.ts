@@ -5,7 +5,7 @@ import { evaluateAndCreateActions } from "./rules";
 
 // Using Service Role key to process events independently of authenticated user session
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export async function processIncomingEvent(businessId: string, payload: any, source: string) {

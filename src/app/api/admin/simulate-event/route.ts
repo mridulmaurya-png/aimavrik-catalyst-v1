@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
 import { processIncomingEvent } from "@/lib/engine/orchestrator";
+import { guardAdminRoute } from "@/lib/api/guard";
 
 // Endpoint: POST /api/admin/simulate-event
 // Protected internal sandbox trigger to mock incoming events bypassing standard webhook guards
 export async function POST(req: Request) {
   try {
-    const authHeader = req.headers.get("authorization");
-    const secret = process.env.INTERNAL_EXECUTION_SECRET || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (authHeader !== `Bearer ${secret}`) {
-      return NextResponse.json({ success: false, error: "Unauthorized Sandbox Access" }, { status: 401 });
-    }
+    // Security: Validate Bearer token + origin restriction
+    const authError = guardAdminRoute(req);
+    if (authError) return authError;
 
     const payload = await req.json();
     const businessId = payload.business_id;
@@ -29,10 +28,11 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       simulation: "complete",
-      details: result
+      status: "ok"
     }, { status: 200 });
 
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    console.error("[Admin:SimulateEvent] Error:", err.message);
+    return NextResponse.json({ success: false, error: "Internal error" }, { status: 500 });
   }
 }

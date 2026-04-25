@@ -2,19 +2,31 @@
 
 import Link from "next/link";
 import { ArrowRight, Menu, X } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const navLinks = [
-  { label: "Product", href: "#solution" },
   { label: "How It Works", href: "#how-it-works" },
-  { label: "Use Cases", href: "#use-cases" },
+  { label: "Results", href: "#value" },
 ];
 
 export function LandingHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
-    <nav className="landing-nav fixed top-0 left-0 right-0 z-50 border-b border-brand-border/40 bg-brand-bg-primary/80 backdrop-blur-xl">
+    <nav
+      className={`landing-nav fixed top-0 left-0 right-0 z-50 border-b transition-all duration-300 ${
+        scrolled
+          ? "border-brand-border/40 bg-brand-bg-primary/90 backdrop-blur-xl"
+          : "border-transparent bg-transparent"
+      }`}
+    >
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         {/* ── Logo ── */}
         <Link href="/" className="flex items-center gap-2.5 shrink-0">
@@ -52,9 +64,10 @@ export function LandingHeader() {
           </Link>
           <Link
             href="/signup"
+            id="nav-cta-get-started"
             className="btn btn-primary !h-10 !text-body-sm !px-5"
           >
-            Sign Up
+            Get Started
           </Link>
         </div>
 
@@ -93,7 +106,7 @@ export function LandingHeader() {
                 href="/signup"
                 className="btn btn-primary w-full !text-body-sm"
               >
-                Sign Up
+                Get Started
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </div>

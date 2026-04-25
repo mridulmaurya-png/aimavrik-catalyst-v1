@@ -5,16 +5,16 @@ import {
   ProblemSection,
   SolutionSection,
   HowItWorksSection,
-  UseCasesSection,
-  WhySection,
+  ValueSection,
   FinalCTA,
+  TrustStrip,
   LandingFooter,
 } from "@/components/landing";
 
 export const metadata: Metadata = {
-  title: "AiMavrik Catalyst — Managed AI Execution System",
+  title: "AiMavrik Catalyst — Turn Every Lead Into Revenue",
   description:
-    "AiMavrik Catalyst automates lead response, follow-ups, customer journeys, and operations through a managed AI execution system built for real business outcomes.",
+    "Stop losing leads. AiMavrik captures, responds, and follows up with every lead automatically — so you close more deals without lifting a finger.",
 };
 
 /**
@@ -31,13 +31,14 @@ export default function HomePage() {
       <LandingHeader />
       <main className="flex-1">
         <HeroSection />
+        <TrustStrip />
         <SectionDivider />
         <ProblemSection />
         <SolutionSection />
-        <HowItWorksSection />
-        <UseCasesSection />
         <SectionDivider />
-        <WhySection />
+        <HowItWorksSection />
+        <SectionDivider />
+        <ValueSection />
         <SectionDivider />
         <FinalCTA />
       </main>

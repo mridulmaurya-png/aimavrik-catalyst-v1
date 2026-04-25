@@ -12,7 +12,7 @@ export async function send(
   const isSimulated = !config.api_key && !config.config_json?.resend_api_key;
 
   if (isSimulated) {
-    console.log(`[CHANNEL:EMAIL:SIMULATED] To: ${payload.to} | Subject: ${payload.subject}`);
+    console.log(`[CHANNEL:EMAIL:SIMULATED] Delivery simulated`);
     return {
       success: true,
       provider_id: `sim_email_${Date.now()}`,

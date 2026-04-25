@@ -21,7 +21,7 @@ export function LandingFooter() {
               </span>
             </div>
             <p className="text-body-sm text-brand-text-tertiary leading-relaxed max-w-xs">
-              Managed AI execution system for business growth and operations.
+              Turn every lead into revenue. Automatically capture, respond, and follow up — so you close more deals without the manual work.
             </p>
           </div>
 
@@ -37,14 +37,24 @@ export function LandingFooter() {
               >
                 Login
               </Link>
+              <Link
+                href="/signup"
+                className="text-body-sm text-brand-text-tertiary hover:text-brand-text-primary transition-colors"
+              >
+                Get Started
+              </Link>
               <a
-                href="#"
+                href="https://aimavrik.com/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-body-sm text-brand-text-tertiary hover:text-brand-text-primary transition-colors"
               >
                 Privacy
               </a>
               <a
-                href="#"
+                href="https://aimavrik.com/terms"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-body-sm text-brand-text-tertiary hover:text-brand-text-primary transition-colors"
               >
                 Terms

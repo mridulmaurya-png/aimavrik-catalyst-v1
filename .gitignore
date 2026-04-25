@@ -30,7 +30,7 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files — NEVER commit secrets
 .env*
 
 # vercel
@@ -39,3 +39,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# utility / migration scripts (may contain secrets)
+test.js
+test.json
+e2e_*.js
+src/lib/*.js
+!src/lib/index.js
+
+# n8n workflow exports (may contain API keys)
+n8n_*.json

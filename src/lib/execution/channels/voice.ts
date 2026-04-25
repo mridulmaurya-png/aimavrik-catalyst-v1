@@ -17,7 +17,7 @@ export async function send(
 ): Promise<ChannelResult> {
   // Voice channel is not yet fully implemented.
   // Return simulated result with clear messaging.
-  console.log(`[CHANNEL:VOICE:SIMULATED] To: ${payload.to} | Body length: ${payload.body.length}`);
+  console.log(`[CHANNEL:VOICE:SIMULATED] Delivery simulated`);
 
   if (config.webhook_url) {
     try {

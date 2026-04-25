@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
+import { guardInternalRoute } from "@/lib/api/guard";
 
 export async function POST(req: Request) {
   try {
-    // TASK 5: Add basic auth protection
-    const apiKey = req.headers.get("x-api-key");
-    if (!apiKey || apiKey !== process.env.INTERNAL_API_KEY) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
+    // Security: Validate x-api-key + origin restriction
+    const authError = guardInternalRoute(req);
+    if (authError) return authError;
 
     // Parse the payload
     const body = await req.json();
@@ -23,8 +19,10 @@ export async function POST(req: Request) {
       metadata,
     } = body;
 
-    // TASK 1: Add response logging
-    console.log("Execution callback:", { automation_run_id, status, channel });
+    const trace_id = body.trace_id || body.payload?.trace_id || automation_run_id;
+
+    // Sanitized log — status and trace only
+    console.log("[Execution Callback]", { trace_id, status, channel });
 
     // Validate requirements
     if (!automation_run_id || typeof automation_run_id !== "string") {
@@ -34,7 +32,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // TASK 3: Status enum safety
+    // Status enum safety
     if (status !== "success" && status !== "failed") {
       return NextResponse.json(
         { success: false, error: 'status must be "success" or "failed"' },
@@ -42,7 +40,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // TASK 2: Ensure metadata safe storage
+    // Ensure metadata safe storage
     let safeMetadata = {};
     if (metadata !== null && metadata !== undefined && typeof metadata === 'object' && !Array.isArray(metadata)) {
       safeMetadata = metadata;
@@ -51,8 +49,7 @@ export async function POST(req: Request) {
     // Initialize Supabase admin client (Service Role - bypasses RLS)
     const supabase = await createAdminClient();
 
-    // TASK 4: Add idempotency protection
-    // First, verify existing record status
+    // Idempotency protection — verify existing record status
     const { data: existingRecord, error: fetchError } = await supabase
       .from("automation_runs")
       .select("status")
@@ -61,7 +58,7 @@ export async function POST(req: Request) {
 
     if (fetchError) {
       // PGRST116: zero rows returned
-      // 22P02: invalid input syntax for type uuid (e.g. "test-id")
+      // 22P02: invalid input syntax for type uuid
       if (fetchError.code === "PGRST116" || fetchError.code === "22P02") { 
         return NextResponse.json(
           { success: false, error: "automation_run_id not found or invalid" },
@@ -69,7 +66,7 @@ export async function POST(req: Request) {
         );
       }
       
-      console.error("[Execution Callback] Fetch existing record error:", fetchError);
+      console.error("[Execution Callback] DB fetch error:", fetchError.code);
       return NextResponse.json(
         { success: false, error: "Failed to verify existing record" },
         { status: 500 }
@@ -77,7 +74,7 @@ export async function POST(req: Request) {
     }
 
     if (existingRecord.status === "success" || existingRecord.status === "failed") {
-      console.log(`[Execution Callback] Ignored duplicate update for ${automation_run_id} (already ${existingRecord.status})`);
+      console.log(`[Execution Callback] Duplicate ignored: ${trace_id}`);
       return NextResponse.json({ success: true, duplicated: true });
     }
 
@@ -98,7 +95,7 @@ export async function POST(req: Request) {
       .eq("id", automation_run_id);
 
     if (dbError) {
-      console.error("[Execution Callback] Database update error:", dbError);
+      console.error("[Execution Callback] DB update error:", dbError.code);
       return NextResponse.json(
         { success: false, error: "Failed to update database" },
         { status: 500 }

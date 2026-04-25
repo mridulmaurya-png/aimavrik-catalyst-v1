@@ -14,7 +14,7 @@ export async function sendSystemNotification(to: string, subject: string, body: 
   const result = await sendEmail({ to, subject, body }, config, !process.env.RESEND_API_KEY);
   
   if (!result.success) {
-    console.error(`[SYSTEM MAIL] Failed to send to ${to}: ${result.error}`);
+    console.error(`[SYSTEM MAIL] Delivery failed: ${result.error}`);
   }
   
   return result;

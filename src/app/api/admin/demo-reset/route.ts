@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { resetDemoTenant } from "@/lib/admin/demo-helper";
+import { guardAdminRoute } from "@/lib/api/guard";
 
 // Endpoint: POST /api/admin/demo-reset
 // Hidden utility for founder demos to reset the board cleanly.
 export async function POST(req: Request) {
   try {
-    const authHeader = req.headers.get("authorization");
-    const secret = process.env.INTERNAL_EXECUTION_SECRET || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (authHeader !== `Bearer ${secret}`) {
-       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    }
+    // Security: Validate Bearer token + origin restriction
+    const authError = guardAdminRoute(req);
+    if (authError) return authError;
 
     const body = await req.json().catch(() => ({}));
     const businessId = body.business_id;
@@ -25,8 +24,9 @@ export async function POST(req: Request) {
 
     const result = await resetDemoTenant(supabase, businessId);
 
-    return NextResponse.json(result, { status: 200 });
+    return NextResponse.json({ success: true, status: "reset_complete" }, { status: 200 });
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    console.error("[Admin:DemoReset] Error:", err.message);
+    return NextResponse.json({ success: false, error: "Internal error" }, { status: 500 });
   }
 }

@@ -27,6 +27,8 @@ interface ContactProfileProps {
     revenue: string
     firstSeen: string
     lastActive: string
+    lastResponse: string | null
+    responseCount: number
     leadScore: number | null
     tags: string[]
   }
@@ -109,6 +111,18 @@ export function ContactProfileCard({ contact }: ContactProfileProps) {
             <span>Last active</span>
             <span>{contact.lastActive}</span>
           </div>
+          {contact.lastResponse && (
+            <div className="flex justify-between">
+              <span>Last response</span>
+              <span className="text-functional-success">{contact.lastResponse}</span>
+            </div>
+          )}
+          {contact.responseCount > 0 && (
+            <div className="flex justify-between">
+              <span>Total replies</span>
+              <span className="font-semibold text-brand-text-primary">{contact.responseCount}</span>
+            </div>
+          )}
         </div>
       </div>
 

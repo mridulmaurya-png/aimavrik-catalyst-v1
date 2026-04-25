@@ -12,7 +12,7 @@ export async function send(
   const isSimulated = !config.api_key && !config.config_json?.whatsapp_api_key;
 
   if (isSimulated) {
-    console.log(`[CHANNEL:WHATSAPP:SIMULATED] To: ${payload.to} | Body length: ${payload.body.length}`);
+    console.log(`[CHANNEL:WHATSAPP:SIMULATED] Delivery simulated`);
     return {
       success: true,
       provider_id: `sim_wa_${Date.now()}`,
@@ -33,7 +33,7 @@ export async function send(
     }
 
     // Placeholder for real Meta/Twilio/Gupshup integration
-    console.log(`[CHANNEL:WHATSAPP:LIVE] To: ${payload.to} via provider ${config.provider}`);
+    console.log(`[CHANNEL:WHATSAPP:LIVE] Delivery sent via ${config.provider}`);
     
     return {
       success: true,

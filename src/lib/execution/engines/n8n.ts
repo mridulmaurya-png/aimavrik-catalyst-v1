@@ -44,7 +44,7 @@ export async function executeN8n(config: N8nExecutionConfig): Promise<EngineResu
     const reqFields = ['workspace_id', 'event', 'lead', 'context', 'channel', 'integration', 'trace_id'];
     for (const f of reqFields) {
       if (!payload[f]) {
-        console.error(`[n8n] Contract validation failed: Missing required field '${f}'`, payload);
+        console.error(`[n8n] Contract validation failed: Missing required field '${f}'`);
         return {
           success: false,
           error: `Contract validation failed: Payload is malformed. Missing '${f}'.`,
@@ -54,7 +54,7 @@ export async function executeN8n(config: N8nExecutionConfig): Promise<EngineResu
     }
 
     if (!payload.lead.id || (!payload.lead.email && !payload.lead.phone)) {
-      console.error("[n8n] Contract validation failed: Lead is missing ID, Email, or Phone.", payload);
+      console.error("[n8n] Contract validation failed: Lead is missing ID, Email, or Phone.");
       return {
         success: false,
         error: "Contract validation failed: Lead mapping is invalid.",
