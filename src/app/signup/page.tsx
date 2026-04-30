@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ShieldCheck, MailCheck } from "lucide-react";
+import { ShieldCheck, MailCheck, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
@@ -50,7 +50,16 @@ export default function SignupPage() {
 
   if (success) {
     return (
-      <div className="min-h-[100vh] bg-brand-bg-primary text-brand-text-primary flex flex-col items-center justify-center p-6 lg:p-12">
+      <div className="relative min-h-[100vh] bg-brand-bg-primary text-brand-text-primary flex flex-col items-center justify-center p-6 lg:p-12">
+        {/* Back to home – top-left exit path */}
+        <a
+          href="https://app.aimavrik.com"
+          className="absolute top-4 left-4 inline-flex items-center gap-1.5 text-xs text-brand-text-tertiary hover:text-brand-text-secondary hover:underline transition-colors z-10"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Back to home
+        </a>
+
         <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="card-elevated p-8 space-y-6 text-center flex flex-col items-center">
             <div className="w-16 h-16 rounded-full bg-functional-success/10 border border-functional-success/30 flex items-center justify-center mb-4">
@@ -70,12 +79,29 @@ export default function SignupPage() {
             </div>
           </div>
         </div>
+
+        {/* Secondary homepage link */}
+        <a
+          href="https://app.aimavrik.com"
+          className="mt-6 text-xs text-brand-text-tertiary hover:text-brand-text-secondary hover:underline transition-colors"
+        >
+          Go to homepage
+        </a>
       </div>
     )
   }
 
   return (
-    <div className="min-h-[100vh] bg-brand-bg-primary text-brand-text-primary flex flex-col items-center justify-center p-6 lg:p-12">
+    <div className="relative min-h-[100vh] bg-brand-bg-primary text-brand-text-primary flex flex-col items-center justify-center p-6 lg:p-12">
+      {/* Back to home – top-left exit path */}
+      <a
+        href="https://app.aimavrik.com"
+        className="absolute top-4 left-4 inline-flex items-center gap-1.5 text-xs text-brand-text-tertiary hover:text-brand-text-secondary hover:underline transition-colors z-10"
+      >
+        <ArrowLeft className="w-3.5 h-3.5" />
+        Back to home
+      </a>
+
       <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="flex flex-col items-center text-center space-y-4">
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center shadow-glow">
@@ -130,6 +156,14 @@ export default function SignupPage() {
           </p>
         </div>
       </div>
+
+      {/* Secondary homepage link below form */}
+      <a
+        href="https://app.aimavrik.com"
+        className="mt-6 text-xs text-brand-text-tertiary hover:text-brand-text-secondary hover:underline transition-colors"
+      >
+        Go to homepage
+      </a>
     </div>
   );
 }

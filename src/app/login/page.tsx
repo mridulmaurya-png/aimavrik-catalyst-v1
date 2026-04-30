@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
@@ -131,10 +131,27 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-[100vh] bg-brand-bg-primary text-brand-text-primary flex flex-col items-center justify-center p-6 lg:p-12">
+    <div className="relative min-h-[100vh] bg-brand-bg-primary text-brand-text-primary flex flex-col items-center justify-center p-6 lg:p-12">
+      {/* Back to home – top-left exit path */}
+      <a
+        href="https://app.aimavrik.com"
+        className="absolute top-4 left-4 inline-flex items-center gap-1.5 text-xs text-brand-text-tertiary hover:text-brand-text-secondary hover:underline transition-colors z-10"
+      >
+        <ArrowLeft className="w-3.5 h-3.5" />
+        Back to home
+      </a>
+
       <Suspense fallback={<div className="text-brand-text-tertiary animate-pulse">Loading login...</div>}>
         <LoginContent />
       </Suspense>
+
+      {/* Secondary homepage link below form */}
+      <a
+        href="https://app.aimavrik.com"
+        className="mt-6 text-xs text-brand-text-tertiary hover:text-brand-text-secondary hover:underline transition-colors"
+      >
+        Go to homepage
+      </a>
     </div>
   );
 }
